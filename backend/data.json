@@ -1,0 +1,14 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "rania.elkheta@gmail.com",
+      "password": "$2a$10$x2MR/fjLykKgjfCqP4/1Ee0J7W8MWl.gAPNgyFr4uvi77WB9A5nwq",
+      "name": "rania",
+      "created_at": 1777540233
+    }
+  ],
+  "projects": [],
+  "_nextUserId": 2,
+  "_nextProjectId": 1
+}

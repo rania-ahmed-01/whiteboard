@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhiteBoard Studio — استوديو الرسم</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">✏️</span>
+      <h1>WhiteBoard Studio</h1>
+    </div>
+    <input class="project-name" id="project-name" value="مشروعى الأول" />
+    <div class="actions">
+      <button class="btn-ghost" id="btn-add-text">+ نص</button>
+      <button class="btn-ghost" id="btn-add-scene">+ مشهد</button>
+      <button class="btn-ghost" id="btn-save">💾 حفظ</button>
+      <button class="btn-ghost" id="btn-load">📂 مشاريعى</button>
+      <button class="btn-primary" id="btn-export">🎬 تصدير فيديو</button>
+      <span class="user-chip" id="user-chip" style="display:none;">
+        <span id="user-email"></span>
+        <button class="btn-ghost btn-sm" id="btn-logout" title="خروج">⎋</button>
+      </span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Library sidebar -->
+    <aside class="sidebar library">
+      <h3>المكتبة</h3>
+      <input class="search" placeholder="ابحث عن أيقونة..." id="lib-search" />
+      <div class="lib-cats" id="lib-cats"></div>
+      <div class="lib-grid" id="lib-grid"></div>
+      <div class="upload-zone">
+        <label for="upload-svg" class="upload-btn">⬆ رفع SVG</label>
+        <input type="file" id="upload-svg" accept=".svg" hidden />
+        <label for="upload-image" class="upload-btn" style="margin-top:6px;">🖼 رفع صورة (PNG/JPG)</label>
+        <input type="file" id="upload-image" accept="image/*" hidden multiple />
+      </div>
+    </aside>
+
+    <!-- Canvas area -->
+    <section class="canvas-wrap">
+      <div class="canvas-tools">
+        <button id="btn-play" class="btn-play">▶ تشغيل</button>
+        <button id="btn-stop" class="btn-ghost">⏹ إيقاف</button>
+        <span class="zoom-info" id="zoom-info">100%</span>
+        <span class="hint">المسطرة + سحب = تحريك اللوحة • Ctrl + عجلة = تكبير • انقر 100% للإرجاع</span>
+      </div>
+      <div class="canvas-frame" id="canvas-frame">
+        <svg id="board" viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet"></svg>
+        <canvas id="export-canvas" width="1280" height="720" style="display:none;"></canvas>
+        <div id="export-overlay" class="export-overlay">
+          <div class="export-box">
+            <div class="spinner"></div>
+            <h3>جارى تسجيل الفيديو...</h3>
+            <p id="export-progress">0%</p>
+          </div>
+        </div>
+        <img id="draw-hand" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M30 150 Q25 100 35 70 L40 30 Q42 18 52 18 Q62 18 60 32 L58 60 L65 25 Q67 12 78 14 Q88 16 84 30 L78 65 L86 32 Q90 20 100 24 Q108 28 102 42 L92 75 L98 55 Q104 45 112 50 Q118 55 110 70 L92 110 Q88 130 80 145 Z' fill='%23f5cba7' stroke='%23333' stroke-width='2'/><circle cx='55' cy='12' r='3' fill='%23333'/></g></svg>" alt="hand" />
+      </div>
+    </section>
+
+    <!-- Properties panel -->
+    <aside class="sidebar props">
+      <h3>خصائص المشهد</h3>
+      <div class="prop-row">
+        <label>مدة الرسم (ثانية)</label>
+        <input type="number" id="prop-duration" min="0.5" max="20" step="0.5" value="3" />
+      </div>
+      <div class="prop-row">
+        <label>تأثير الدخول</label>
+        <select id="prop-effect">
+          <option value="draw">✏️ رسم يدوى</option>
+          <option value="fade">🌫 تلاشى</option>
+          <option value="pop">💥 نبض</option>
+          <option value="spin">🌀 دوران</option>
+          <option value="shake">📳 اهتزاز</option>
+          <option value="bounce">⬇️ ارتداد</option>
+          <option value="zoom">🔍 تكبير</option>
+          <option value="slide-r">⬅️ انزلاق يمين</option>
+          <option value="slide-l">➡️ انزلاق يسار</option>
+          <option value="slide-u">⬆️ انزلاق أعلى</option>
+          <option value="slide-d">⬇️ انزلاق أسفل</option>
+          <option value="flip-x">🔄 قلب أفقى</option>
+          <option value="flip-y">🔃 قلب رأسى</option>
+        </select>
+      </div>
+      <div class="prop-row">
+        <label>لون الخط</label>
+        <input type="color" id="prop-color" value="#222222" />
+      </div>
+      <div class="prop-row">
+        <label>سمك الخط</label>
+        <input type="range" id="prop-stroke" min="1" max="8" value="2.5" step="0.5" />
+      </div>
+      <hr />
+      <div id="item-controls" class="item-controls" style="display:none;">
+        <h3>العنصر المحدد</h3>
+        <div class="prop-row">
+          <label>الحجم <span id="lbl-scale">60%</span></label>
+          <input type="range" id="ctrl-scale" min="10" max="300" value="60" step="1" />
+        </div>
+        <div class="prop-row">
+          <label>الدوران <span id="lbl-rot">0°</span></label>
+          <input type="range" id="ctrl-rot" min="-180" max="180" value="0" step="1" />
+        </div>
+        <div class="flip-row">
+          <button class="btn-ghost btn-sm" id="ctrl-flip-x" title="قلب أفقى">⬌ قلب أفقى</button>
+          <button class="btn-ghost btn-sm" id="ctrl-flip-y" title="قلب رأسى">⬍ قلب رأسى</button>
+        </div>
+        <div class="flip-row">
+          <button class="btn-ghost btn-sm" id="ctrl-front">⬆ للأمام</button>
+          <button class="btn-ghost btn-sm" id="ctrl-back">⬇ للخلف</button>
+        </div>
+        <button class="btn-ghost btn-sm" id="ctrl-reset" style="width:100%; margin-top:8px;">↺ إعادة تعيين</button>
+        <button class="btn-ghost btn-sm" id="ctrl-delete" style="width:100%; margin-top:6px; color:#ff7878;">🗑 حذف العنصر</button>
+        <hr />
+      </div>
+      <h3>الصوت</h3>
+      <div class="prop-row">
+        <label for="audio-upload" class="upload-btn" style="margin:0">🎵 رفع موسيقى</label>
+        <input type="file" id="audio-upload" accept="audio/*" hidden />
+      </div>
+      <div class="flip-row" style="margin-top:6px;">
+        <button class="btn-ghost btn-sm" id="btn-rec-start">🔴 تسجيل</button>
+        <button class="btn-ghost btn-sm" id="btn-rec-stop" disabled>⏹ إيقاف</button>
+      </div>
+      <span id="rec-timer" style="display:block; text-align:center; font-family:monospace; color:var(--accent); margin-top:4px;"></span>
+      <audio id="bg-audio" controls style="width:100%; margin-top:8px; display:none;"></audio>
+      <div id="audio-edit" style="display:none;">
+        <div class="prop-row" style="margin-top:8px;">
+          <label>السرعة <span id="lbl-speed">1.0x</span></label>
+          <input type="range" id="ctrl-speed" min="0.5" max="2" step="0.1" value="1" />
+        </div>
+        <div class="prop-row">
+          <label>القص — البداية <span id="lbl-trim-s">0.0s</span></label>
+          <input type="range" id="ctrl-trim-start" min="0" max="100" step="0.1" value="0" />
+        </div>
+        <div class="prop-row">
+          <label>القص — النهاية <span id="lbl-trim-e">0.0s</span></label>
+          <input type="range" id="ctrl-trim-end" min="0" max="100" step="0.1" value="100" />
+        </div>
+        <button class="btn-ghost btn-sm" id="btn-audio-preview" style="width:100%;">▶ معاينة المقطوع</button>
+      </div>
+      <hr />
+      <h3>المشاهد</h3>
+      <ul class="scenes" id="scenes-list"></ul>
+    </aside>
+  </main>
+
+  <!-- Timeline -->
+  <footer class="timeline">
+    <div class="track" id="track"></div>
+    <div class="timecode" id="timecode">00:00 / 00:00</div>
+  </footer>
+
+  <!-- Auth modal -->
+  <div id="auth-modal" class="modal show">
+    <div class="modal-box auth-box">
+      <h2>WhiteBoard Studio</h2>
+      <p class="muted" id="auth-subtitle">سجّل دخولك للبدء</p>
+      <div class="auth-tabs">
+        <button class="tab active" data-tab="login">دخول</button>
+        <button class="tab" data-tab="register">حساب جديد</button>
+      </div>
+      <div id="auth-error" class="auth-error"></div>
+      <form id="auth-form">
+        <input type="text" id="auth-name" placeholder="الاسم" style="display:none;" />
+        <input type="email" id="auth-email" placeholder="البريد الإلكترونى" required autocomplete="email" />
+        <input type="password" id="auth-password" placeholder="كلمة السر" required minlength="6" autocomplete="current-password" />
+        <button type="submit" class="btn-primary" style="width:100%;" id="auth-submit">دخول</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Projects modal -->
+  <div id="projects-modal" class="modal">
+    <div class="modal-box" style="max-width:600px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>مشاريعى</h2>
+        <button class="btn-ghost btn-sm" id="projects-close">✕</button>
+      </div>
+      <div id="projects-list" class="projects-list"></div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="library.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
