@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { initDb } from './db.js';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import uploadRoutes from './routes/uploads.js';
@@ -39,6 +41,15 @@ app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: err.message || 'Server error' });
 });
+
+try {
+  await initDb();
+  console.log('✓ PostgreSQL connected — schema ready');
+} catch (err) {
+  console.error('✗ Failed to initialize PostgreSQL:', err.message);
+  console.error('  Set DATABASE_URL or ensure database "whiteboard" exists with user "postgres".');
+  process.exit(1);
+}
 
 app.listen(PORT, () => {
   console.log(`\n  ╔══════════════════════════════════════════╗`);

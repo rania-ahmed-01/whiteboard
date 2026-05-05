@@ -75,6 +75,9 @@ input, select { font-family: inherit; }
   font-size: 13px;
 }
 .btn-ghost:hover { background: var(--panel-2); }
+.btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-ghost:disabled:hover { background: transparent; }
+.btn-icon { padding: 6px 10px; font-size: 16px; line-height: 1; }
 
 .btn-play {
   background: var(--success);

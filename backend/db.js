@@ -1,66 +1,128 @@
-// Lightweight JSON file store — no native deps, works on any Node version.
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// PostgreSQL store. Same API surface as the previous JSON store, but async.
+import pg from 'pg';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, 'data.json');
+const { Pool } = pg;
 
-let data = { users: [], projects: [], _nextUserId: 1, _nextProjectId: 1 };
-if (fs.existsSync(DB_PATH)) {
-  try { data = JSON.parse(fs.readFileSync(DB_PATH, 'utf8')); }
-  catch (e) { console.warn('Failed to parse data.json, starting fresh', e); }
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgres://postgres:postgres@localhost:5432/whiteboard';
+
+export const pool = new Pool({ connectionString });
+
+pool.on('error', (err) => {
+  console.error('Unexpected PostgreSQL pool error', err);
+});
+
+const SCHEMA_SQL = `
+  CREATE TABLE IF NOT EXISTS users (
+    id         SERIAL PRIMARY KEY,
+    email      TEXT UNIQUE NOT NULL,
+    password   TEXT NOT NULL,
+    name       TEXT,
+    created_at BIGINT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id         SERIAL PRIMARY KEY,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    data       JSONB NOT NULL,
+    thumbnail  TEXT,
+    created_at BIGINT NOT NULL,
+    updated_at BIGINT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_projects_user_updated
+    ON projects(user_id, updated_at DESC);
+`;
+
+export async function initDb() {
+  await pool.query(SCHEMA_SQL);
 }
 
-let saveTimer = null;
-function save() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    fs.writeFile(DB_PATH, JSON.stringify(data, null, 2), (err) => {
-      if (err) console.error('DB save failed', err);
-    });
-  }, 50);
-}
 const now = () => Math.floor(Date.now() / 1000);
 
 export const Users = {
-  findByEmail(email) { return data.users.find(u => u.email === email) || null; },
-  findById(id) { return data.users.find(u => u.id === id) || null; },
-  create({ email, password, name }) {
-    const user = { id: data._nextUserId++, email, password, name: name || null, created_at: now() };
-    data.users.push(user); save(); return user;
+  async findByEmail(email) {
+    const { rows } = await pool.query(
+      'SELECT id, email, password, name, created_at FROM users WHERE email = $1',
+      [email]
+    );
+    return rows[0] || null;
+  },
+  async findById(id) {
+    const { rows } = await pool.query(
+      'SELECT id, email, password, name, created_at FROM users WHERE id = $1',
+      [id]
+    );
+    return rows[0] || null;
+  },
+  async create({ email, password, name }) {
+    const { rows } = await pool.query(
+      `INSERT INTO users (email, password, name, created_at)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, password, name, created_at`,
+      [email, password, name || null, now()]
+    );
+    return rows[0];
   }
 };
 
 export const Projects = {
-  listByUser(userId) {
-    return data.projects
-      .filter(p => p.user_id === userId)
-      .sort((a, b) => b.updated_at - a.updated_at)
-      .map(({ data: _d, ...meta }) => meta);
+  async listByUser(userId) {
+    const { rows } = await pool.query(
+      `SELECT id, user_id, name, thumbnail, created_at, updated_at
+         FROM projects
+        WHERE user_id = $1
+        ORDER BY updated_at DESC`,
+      [userId]
+    );
+    return rows;
   },
-  get(id, userId) {
-    return data.projects.find(p => p.id === id && p.user_id === userId) || null;
+  async get(id, userId) {
+    const { rows } = await pool.query(
+      `SELECT id, user_id, name, data, thumbnail, created_at, updated_at
+         FROM projects
+        WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+    return rows[0] || null;
   },
-  create({ user_id, name, data: pdata, thumbnail }) {
+  async create({ user_id, name, data, thumbnail }) {
     const t = now();
-    const p = { id: data._nextProjectId++, user_id, name, data: pdata, thumbnail: thumbnail || null, created_at: t, updated_at: t };
-    data.projects.push(p); save(); return p;
+    const { rows } = await pool.query(
+      `INSERT INTO projects (user_id, name, data, thumbnail, created_at, updated_at)
+       VALUES ($1, $2, $3::jsonb, $4, $5, $5)
+       RETURNING id, user_id, name, thumbnail, created_at, updated_at`,
+      [user_id, name, JSON.stringify(data), thumbnail || null, t]
+    );
+    return rows[0];
   },
-  update(id, userId, fields) {
-    const p = data.projects.find(x => x.id === id && x.user_id === userId);
-    if (!p) return false;
-    if (fields.name != null) p.name = fields.name;
-    if (fields.data != null) p.data = fields.data;
-    if (fields.thumbnail != null) p.thumbnail = fields.thumbnail;
-    p.updated_at = now();
-    save(); return true;
+  async update(id, userId, fields) {
+    // Build a partial update — only the fields that were provided.
+    const sets = [];
+    const params = [];
+    let i = 1;
+    if (fields.name != null) { sets.push(`name = $${i++}`); params.push(fields.name); }
+    if (fields.data != null) { sets.push(`data = $${i++}::jsonb`); params.push(JSON.stringify(fields.data)); }
+    if (fields.thumbnail != null) { sets.push(`thumbnail = $${i++}`); params.push(fields.thumbnail); }
+    if (!sets.length) return true;
+    sets.push(`updated_at = $${i++}`); params.push(now());
+    params.push(id, userId);
+    const { rowCount } = await pool.query(
+      `UPDATE projects SET ${sets.join(', ')}
+        WHERE id = $${i++} AND user_id = $${i++}`,
+      params
+    );
+    return rowCount > 0;
   },
-  remove(id, userId) {
-    const idx = data.projects.findIndex(p => p.id === id && p.user_id === userId);
-    if (idx === -1) return false;
-    data.projects.splice(idx, 1); save(); return true;
+  async remove(id, userId) {
+    const { rowCount } = await pool.query(
+      'DELETE FROM projects WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    return rowCount > 0;
   }
 };
 
-export default { Users, Projects };
+export default { Users, Projects, initDb, pool };

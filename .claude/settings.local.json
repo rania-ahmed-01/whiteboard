@@ -14,7 +14,22 @@
       "Bash(git add *)",
       "Bash(git push *)",
       "Bash(gh --version)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(npm start *)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(curl -s http://localhost:3001/app.js -o /tmp/app-served.js)",
+      "Read(//tmp/**)",
+      "Bash(node -c \"c:\\\\white board\\\\frontend\\\\app.js\")",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('c:/white board/frontend/app.js','utf8'\\); new Function\\(require\\('fs'\\).readFileSync\\('c:/white board/frontend/app.js','utf8'\\)\\);\")",
+      "Bash(ls \"C:\\\\Users\\\\Compumarts\\\\.claude\\\\projects\\\\c--white-board\\\\memory\" 2>&1)",
+      "Read(//c/Users/Compumarts/.claude/projects/c--white-board/**)",
+      "Bash(taskkill /F /FI \"WINDOWTITLE eq *\" /IM node.exe)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 25912)",
+      "Bash(npm install *)",
+      "Bash(\"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -U postgres -h localhost -tAc \"SELECT 1 FROM pg_database WHERE datname='whiteboard'\")",
+      "Bash(tasklist)",
+      "Bash(taskkill //F //PID 6168)"
     ]
   }
 }

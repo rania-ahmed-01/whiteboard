@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Tajawal:wght@400;700&family=Amiri:wght@400;700&family=Aref+Ruqaa:wght@400;700&family=El+Messiri:wght@400;700&family=Reem+Kufi:wght@400;700&family=Lalezar&family=Almarai:wght@400;700&display=swap" rel="stylesheet" />
 </head>
 <body>
   <header class="topbar">
@@ -17,6 +17,8 @@
     </div>
     <input class="project-name" id="project-name" value="مشروعى الأول" />
     <div class="actions">
+      <button class="btn-ghost btn-icon" id="btn-undo" title="تراجع (Ctrl+Z)" disabled>↶</button>
+      <button class="btn-ghost btn-icon" id="btn-redo" title="إعادة (Ctrl+Y)" disabled>↷</button>
       <button class="btn-ghost" id="btn-add-text">+ نص</button>
       <button class="btn-ghost" id="btn-add-scene">+ مشهد</button>
       <button class="btn-ghost" id="btn-save">💾 حفظ</button>
@@ -100,6 +102,33 @@
         <input type="range" id="prop-stroke" min="1" max="8" value="2.5" step="0.5" />
       </div>
       <hr />
+      <h3>خلفية المشهد</h3>
+      <div class="prop-row">
+        <label>النوع</label>
+        <select id="bg-type">
+          <option value="none">بدون</option>
+          <option value="solid">لون فقط</option>
+          <option value="grid">مربعات</option>
+          <option value="lines">أسطر دفتر</option>
+          <option value="dots">نقط</option>
+          <option value="graph">ورق رسم بيانى</option>
+          <option value="image">صورة</option>
+        </select>
+      </div>
+      <div class="prop-row" id="bg-color-row" style="display:none;">
+        <label>لون الخلفية</label>
+        <input type="color" id="bg-color" value="#ffffff" />
+      </div>
+      <div class="prop-row" id="bg-line-color-row" style="display:none;">
+        <label>لون النقش</label>
+        <input type="color" id="bg-line-color" value="#cfd8e6" />
+      </div>
+      <div class="prop-row" id="bg-image-row" style="display:none;">
+        <label for="bg-upload" class="upload-btn" style="margin:0;">🖼 اختر صورة</label>
+        <input type="file" id="bg-upload" accept="image/*" hidden />
+        <button class="btn-ghost btn-sm" id="btn-bg-clear" style="width:100%; margin-top:6px;">إزالة الصورة</button>
+      </div>
+      <hr />
       <div id="item-controls" class="item-controls" style="display:none;">
         <h3>العنصر المحدد</h3>
         <div class="prop-row">
@@ -110,6 +139,19 @@
           <label>الدوران <span id="lbl-rot">0°</span></label>
           <input type="range" id="ctrl-rot" min="-180" max="180" value="0" step="1" />
         </div>
+        <div class="prop-row" id="ctrl-font-row" style="display:none;">
+          <label>الخط</label>
+          <select id="ctrl-font">
+            <option value="Cairo" style="font-family:Cairo;">Cairo — كايرو</option>
+            <option value="Tajawal" style="font-family:Tajawal;">Tajawal — تجوّل</option>
+            <option value="Amiri" style="font-family:Amiri;">Amiri — أميرى</option>
+            <option value="Aref Ruqaa" style="font-family:'Aref Ruqaa';">Diwani — ديوانى</option>
+            <option value="El Messiri" style="font-family:'El Messiri';">El Messiri — المسيرى</option>
+            <option value="Reem Kufi" style="font-family:'Reem Kufi';">Reem Kufi — كوفى</option>
+            <option value="Lalezar" style="font-family:Lalezar;">Lalezar — لاله زار</option>
+            <option value="Almarai" style="font-family:Almarai;">Almarai — المراعى</option>
+          </select>
+        </div>
         <div class="flip-row">
           <button class="btn-ghost btn-sm" id="ctrl-flip-x" title="قلب أفقى">⬌ قلب أفقى</button>
           <button class="btn-ghost btn-sm" id="ctrl-flip-y" title="قلب رأسى">⬍ قلب رأسى</button>
@@ -119,6 +161,7 @@
           <button class="btn-ghost btn-sm" id="ctrl-back">⬇ للخلف</button>
         </div>
         <button class="btn-ghost btn-sm" id="ctrl-reset" style="width:100%; margin-top:8px;">↺ إعادة تعيين</button>
+        <button class="btn-ghost btn-sm" id="ctrl-duplicate" style="width:100%; margin-top:6px;">📋 نسخ العنصر (Ctrl+D)</button>
         <button class="btn-ghost btn-sm" id="ctrl-delete" style="width:100%; margin-top:6px; color:#ff7878;">🗑 حذف العنصر</button>
         <hr />
       </div>
