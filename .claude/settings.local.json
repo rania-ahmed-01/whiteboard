@@ -34,7 +34,8 @@
       "Read(//c/Users/Compumarts/.ssh/**)",
       "Bash(where gh *)",
       "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('c:/white board/frontend/app.js','utf8'\\)\\);\")",
-      "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('c:/white board/frontend/library.js','utf8'\\)\\);\")"
+      "Bash(node -e \"new Function\\(require\\('fs'\\).readFileSync\\('c:/white board/frontend/library.js','utf8'\\)\\);\")",
+      "Bash(git commit -m ' *)"
     ]
   }
 }

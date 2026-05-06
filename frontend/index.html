@@ -209,12 +209,36 @@
             <div class="prop-row">
               <label>اليد</label>
               <select id="prop-hand-style">
-                <option value="hand-light">✋ يد فاتحة</option>
-                <option value="hand-dark">✊ يد داكنة</option>
-                <option value="pencil">✏️ قلم</option>
+                <option value="hand-light">✋ يد فاتحة + قلم</option>
+                <option value="hand-dark">✊ يد داكنة + قلم</option>
+                <option value="pencil">✏️ قلم رصاص</option>
                 <option value="marker">🖊 ماركر</option>
                 <option value="brush">🖌 فرشاة</option>
               </select>
+              <div class="prop-row" style="margin-top:8px;">
+                <label>حجم اليد <span id="lbl-hand-size">200</span>px</label>
+                <input type="range" id="ctrl-hand-size" min="80" max="400" step="10" value="200" />
+              </div>
+              <label for="hand-upload" class="upload-btn" style="margin-top:6px; display:block; text-align:center; font-size:11px;">⬆ رفع يد جديدة (PNG شفاف)</label>
+              <input type="file" id="hand-upload" accept="image/*" hidden />
+              <div id="hand-tip-editor" style="display:none; margin-top:8px;">
+                <p class="hint-text">انقرى على رأس القلم فى الصورة لضبط نقطة الرسم:</p>
+                <div id="hand-preview-wrap" class="hand-preview-wrap">
+                  <img id="hand-preview" alt="hand preview" />
+                  <div id="hand-tip-marker" class="hand-tip-marker"></div>
+                </div>
+                <div class="prop-grid" style="margin-top:6px;">
+                  <div class="prop-row">
+                    <label>X% <span id="lbl-tip-x">5</span></label>
+                    <input type="range" id="ctrl-tip-x" min="0" max="100" step="1" value="5" />
+                  </div>
+                  <div class="prop-row">
+                    <label>Y% <span id="lbl-tip-y">5</span></label>
+                    <input type="range" id="ctrl-tip-y" min="0" max="100" step="1" value="5" />
+                  </div>
+                </div>
+                <button class="btn-ghost btn-sm danger" id="hand-delete" style="width:100%; margin-top:6px;">🗑 حذف اليد دى</button>
+              </div>
             </div>
           </div>
         </div>
@@ -480,6 +504,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
   <script src="api.js"></script>
   <script src="library.js"></script>
   <script src="app.js"></script>

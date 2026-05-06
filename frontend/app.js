@@ -48,18 +48,132 @@ function firstSelectedId() {
 }
 
 // =========== HAND STYLES ===========
+// Each hand is positioned so the PEN/TOOL TIP is at the top-left corner of the viewBox.
+// CSS offset (transform-origin & top/left) adjusts so the tip snaps to the drawing point.
 const HAND_STYLES = {
-  'hand-light': `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M30 150 Q25 100 35 70 L40 30 Q42 18 52 18 Q62 18 60 32 L58 60 L65 25 Q67 12 78 14 Q88 16 84 30 L78 65 L86 32 Q90 20 100 24 Q108 28 102 42 L92 75 L98 55 Q104 45 112 50 Q118 55 110 70 L92 110 Q88 130 80 145 Z' fill='%23f5cba7' stroke='%23333' stroke-width='2'/><circle cx='55' cy='12' r='3' fill='%23333'/></g></svg>`,
-  'hand-dark': `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M30 150 Q25 100 35 70 L40 30 Q42 18 52 18 Q62 18 60 32 L58 60 L65 25 Q67 12 78 14 Q88 16 84 30 L78 65 L86 32 Q90 20 100 24 Q108 28 102 42 L92 75 L98 55 Q104 45 112 50 Q118 55 110 70 L92 110 Q88 130 80 145 Z' fill='%23a87a51' stroke='%23222' stroke-width='2'/><circle cx='55' cy='12' r='3' fill='%23222'/></g></svg>`,
-  'pencil':    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M55 12 L65 12 L70 30 L70 130 L60 145 L50 130 L50 30 Z' fill='%23fbbf24' stroke='%23333' stroke-width='2'/><path d='M50 30 L70 30' stroke='%23333' stroke-width='2'/><path d='M55 12 L60 4 L65 12 Z' fill='%23ef4444' stroke='%23333' stroke-width='1.5'/><path d='M50 130 L70 130 L60 152 Z' fill='%23231f20' stroke='%23333' stroke-width='1.5'/></g></svg>`,
-  'marker':    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><rect x='44' y='10' width='32' height='110' rx='6' fill='%233b82f6' stroke='%23333' stroke-width='2'/><rect x='40' y='6' width='40' height='14' rx='4' fill='%231e40af' stroke='%23333' stroke-width='2'/><path d='M44 120 L60 152 L76 120 Z' fill='%23000' stroke='%23333' stroke-width='1.5'/></g></svg>`,
-  'brush':     `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><rect x='48' y='10' width='24' height='80' fill='%238b5cf6' stroke='%23333' stroke-width='2'/><rect x='44' y='90' width='32' height='14' rx='3' fill='%23a78bfa' stroke='%23333' stroke-width='2'/><path d='M44 104 Q50 130 55 152 M52 104 Q56 132 58 152 M60 104 Q60 134 60 152 M68 104 Q66 132 64 152 M76 104 Q70 130 65 152' fill='none' stroke='%2374573a' stroke-width='2.5' stroke-linecap='round'/></g></svg>`
+  'hand-light': `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='240' viewBox='0 0 200 240'>
+    <defs>
+      <linearGradient id='sk1' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%23fcdab8'/><stop offset='1' stop-color='%23d6a576'/>
+      </linearGradient>
+      <linearGradient id='pn1' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%23444'/><stop offset='1' stop-color='%23111'/>
+      </linearGradient>
+    </defs>
+    <line x1='10' y1='10' x2='110' y2='110' stroke='url(%23pn1)' stroke-width='9' stroke-linecap='round'/>
+    <line x1='10' y1='10' x2='28' y2='28' stroke='%233b82f6' stroke-width='10' stroke-linecap='round'/>
+    <circle cx='10' cy='10' r='3' fill='%23000'/>
+    <path d='M 130 150 Q 165 195 200 235 L 200 240 L 170 240 Q 105 230 80 195 Q 65 165 85 145 Z' fill='url(%23sk1)' stroke='%237a4a1f' stroke-width='2'/>
+    <path d='M 70 95 C 50 105 45 135 65 165 C 90 195 140 200 170 175 C 185 155 178 128 158 113 C 138 98 95 88 75 95 Z' fill='url(%23sk1)' stroke='%237a4a1f' stroke-width='2'/>
+    <path d='M 78 96 C 60 80 70 65 92 72 C 102 80 95 96 85 100 Z' fill='url(%23sk1)' stroke='%237a4a1f' stroke-width='1.8'/>
+    <path d='M 95 92 C 92 65 112 50 122 65 C 124 88 112 100 100 96 Z' fill='url(%23sk1)' stroke='%237a4a1f' stroke-width='1.8'/>
+    <path d='M 118 100 C 116 80 128 65 138 72 C 144 88 138 105 130 108 Z' fill='url(%23sk1)' stroke='%237a4a1f' stroke-width='1.8'/>
+    <path d='M 95 130 Q 130 134 160 128' fill='none' stroke='%23a8775d' stroke-width='1' opacity='0.5'/>
+    <path d='M 110 175 Q 135 178 155 172' fill='none' stroke='%23a8775d' stroke-width='1.5' opacity='0.6'/>
+    <ellipse cx='100' cy='62' rx='5' ry='3' fill='%23fff8f0' opacity='0.55'/>
+    <ellipse cx='128' cy='72' rx='5' ry='3' fill='%23fff8f0' opacity='0.55'/>
+  </svg>`,
+  'hand-dark': `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='240' viewBox='0 0 200 240'>
+    <defs>
+      <linearGradient id='sk2' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%23a47148'/><stop offset='1' stop-color='%236b4226'/>
+      </linearGradient>
+      <linearGradient id='pn2' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%23444'/><stop offset='1' stop-color='%23111'/>
+      </linearGradient>
+    </defs>
+    <line x1='10' y1='10' x2='110' y2='110' stroke='url(%23pn2)' stroke-width='9' stroke-linecap='round'/>
+    <line x1='10' y1='10' x2='28' y2='28' stroke='%23ef4444' stroke-width='10' stroke-linecap='round'/>
+    <circle cx='10' cy='10' r='3' fill='%23000'/>
+    <path d='M 130 150 Q 165 195 200 235 L 200 240 L 170 240 Q 105 230 80 195 Q 65 165 85 145 Z' fill='url(%23sk2)' stroke='%23362012' stroke-width='2'/>
+    <path d='M 70 95 C 50 105 45 135 65 165 C 90 195 140 200 170 175 C 185 155 178 128 158 113 C 138 98 95 88 75 95 Z' fill='url(%23sk2)' stroke='%23362012' stroke-width='2'/>
+    <path d='M 78 96 C 60 80 70 65 92 72 C 102 80 95 96 85 100 Z' fill='url(%23sk2)' stroke='%23362012' stroke-width='1.8'/>
+    <path d='M 95 92 C 92 65 112 50 122 65 C 124 88 112 100 100 96 Z' fill='url(%23sk2)' stroke='%23362012' stroke-width='1.8'/>
+    <path d='M 118 100 C 116 80 128 65 138 72 C 144 88 138 105 130 108 Z' fill='url(%23sk2)' stroke='%23362012' stroke-width='1.8'/>
+    <path d='M 110 175 Q 135 178 155 172' fill='none' stroke='%23ffd9b3' stroke-width='1.2' opacity='0.35'/>
+    <ellipse cx='100' cy='62' rx='5' ry='3' fill='%23ffe6c8' opacity='0.45'/>
+    <ellipse cx='128' cy='72' rx='5' ry='3' fill='%23ffe6c8' opacity='0.45'/>
+  </svg>`,
+  'pencil': `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260' viewBox='0 0 200 260'>
+    <defs>
+      <linearGradient id='pncl' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%23fde68a'/><stop offset='1' stop-color='%23ca8a04'/>
+      </linearGradient>
+    </defs>
+    <polygon points='10,10 25,5 35,15 25,28 12,22' fill='%23231f20' stroke='%23000' stroke-width='1.2'/>
+    <polygon points='28,12 38,22 95,80 110,90 105,95 90,110 30,52 22,38' fill='%23f5d99b' stroke='%23a16207' stroke-width='1.5'/>
+    <line x1='30' y1='15' x2='95' y2='80' stroke='%23a16207' stroke-width='1' opacity='0.5'/>
+    <rect x='90' y='75' width='90' height='30' rx='4' transform='rotate(45 90 75)' fill='url(%23pncl)' stroke='%23854d0e' stroke-width='2'/>
+    <rect x='150' y='115' width='30' height='25' rx='4' transform='rotate(45 150 115)' fill='%23dc2626' stroke='%23991b1b' stroke-width='2'/>
+    <rect x='170' y='135' width='12' height='30' rx='2' transform='rotate(45 170 135)' fill='%23e5e7eb' stroke='%236b7280' stroke-width='1.5'/>
+    <rect x='178' y='160' width='14' height='14' rx='2' transform='rotate(45 178 160)' fill='%23fda4af' stroke='%23881337' stroke-width='1.5'/>
+  </svg>`,
+  'marker': `<svg xmlns='http://www.w3.org/2000/svg' width='180' height='240' viewBox='0 0 180 240'>
+    <defs>
+      <linearGradient id='mk' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%2360a5fa'/><stop offset='1' stop-color='%231e40af'/>
+      </linearGradient>
+    </defs>
+    <polygon points='10,10 28,3 40,15 30,30 14,24' fill='%23111' stroke='%23000' stroke-width='1.5'/>
+    <rect x='32' y='12' width='30' height='14' rx='3' transform='rotate(45 32 12)' fill='%231e3a8a' stroke='%23172554' stroke-width='1.5'/>
+    <rect x='52' y='32' width='130' height='42' rx='8' transform='rotate(45 52 32)' fill='url(%23mk)' stroke='%231e3a8a' stroke-width='2.5'/>
+    <line x1='80' y1='35' x2='150' y2='105' stroke='%23bfdbfe' stroke-width='3' opacity='0.6'/>
+  </svg>`,
+  'brush': `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260' viewBox='0 0 200 260'>
+    <defs>
+      <linearGradient id='br' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0' stop-color='%23a78bfa'/><stop offset='1' stop-color='%235b21b6'/>
+      </linearGradient>
+    </defs>
+    <path d='M 10 10 Q 5 20 8 30 L 38 60 Q 48 50 52 38 Q 50 28 30 12 Q 20 6 10 10 Z' fill='%23a16207' stroke='%23713f12' stroke-width='1.5'/>
+    <path d='M 12 8 Q 18 18 32 30 M 16 4 Q 22 14 36 26 M 8 14 Q 14 22 28 34' stroke='%23713f12' stroke-width='1' opacity='0.6' fill='none'/>
+    <rect x='40' y='30' width='30' height='14' rx='3' transform='rotate(45 40 30)' fill='%23737373' stroke='%23404040' stroke-width='1.5'/>
+    <rect x='60' y='50' width='110' height='38' rx='5' transform='rotate(45 60 50)' fill='url(%23br)' stroke='%234c1d95' stroke-width='2'/>
+    <rect x='150' y='130' width='30' height='14' rx='3' transform='rotate(45 150 130)' fill='%237c3aed' stroke='%234c1d95' stroke-width='1.5'/>
+  </svg>`
 };
 
+// Library of user-uploaded custom hands. Each: { id, name, src, tipX, tipY }
+let customHands = (() => {
+  try {
+    const raw = localStorage.getItem('wb_custom_hands');
+    if (raw) return JSON.parse(raw);
+    // Migrate from the old single-hand format
+    const oldSrc = localStorage.getItem('wb_custom_hand');
+    if (oldSrc) {
+      let oldTip = { x: 0.05, y: 0.05 };
+      try { oldTip = JSON.parse(localStorage.getItem('wb_custom_hand_tip')) || oldTip; } catch {}
+      const migrated = [{
+        id: 'cust_legacy', name: 'يد مخصصة',
+        src: oldSrc, tipX: oldTip.x, tipY: oldTip.y
+      }];
+      localStorage.setItem('wb_custom_hands', JSON.stringify(migrated));
+      localStorage.removeItem('wb_custom_hand');
+      localStorage.removeItem('wb_custom_hand_tip');
+      return migrated;
+    }
+    return [];
+  } catch { return []; }
+})();
+
+function saveCustomHands() { localStorage.setItem('wb_custom_hands', JSON.stringify(customHands)); }
+function findCustomHand(id) { return customHands.find(h => h.id === id); }
+
+// Tip fraction (0..1) for the current hand — used by positioning code
+let currentHandTipFrac = { x: 0.05, y: 0.05 };
+
 function setHandStyle(id) {
+  const custom = findCustomHand(id);
+  if (custom) {
+    projectHandStyle = id;
+    drawHand.src = custom.src;
+    currentHandTipFrac = { x: custom.tipX, y: custom.tipY };
+    return;
+  }
   if (!HAND_STYLES[id]) id = 'hand-light';
   projectHandStyle = id;
   drawHand.src = 'data:image/svg+xml;utf8,' + HAND_STYLES[id];
+  currentHandTipFrac = { x: 0.05, y: 0.05 };
 }
 
 // =========== UNDO / REDO ===========
@@ -312,6 +426,16 @@ function getTextTransform(it) {
   const sY = it.flipY ? -1 : 1;
   const cx = it.x, cy = it.y - it.fontSize * 0.3;
   return `rotate(${rot} ${cx} ${cy}) translate(${cx} ${cy}) scale(${sX} ${sY}) translate(${-cx} ${-cy})`;
+}
+function getChartTransform(it) {
+  const rot = it.rotation || 0;
+  const sX = it.flipX ? -1 : 1;
+  const sY = it.flipY ? -1 : 1;
+  if (!rot && sX === 1 && sY === 1) return `translate(${it.x} ${it.y})`;
+  const cx = (it.width || 800) / 2;
+  const cy = (it.height || 440) / 2;
+  // Position to (x,y), then rotate/scale around the chart's center
+  return `translate(${it.x + cx} ${it.y + cy}) rotate(${rot}) scale(${sX} ${sY}) translate(${-cx} ${-cy})`;
 }
 function getImageTransform(it) {
   const rot = it.rotation || 0;
@@ -806,7 +930,7 @@ function buildChartGroup(it, options = {}) {
   // options.partial: 0..1 — render only the first portion of the data (for animation)
   const partial = options.partial != null ? options.partial : 1;
   const g = document.createElementNS(SVG_NS, 'g');
-  g.setAttribute('transform', `translate(${it.x} ${it.y})`);
+  g.setAttribute('transform', getChartTransform(it));
   const L = chartLayout(it);
   const stroke = (it.stroke || 2.5) * 4;
   const opacity = it.drawStyle === 'pencil' ? 0.78 : (it.drawStyle === 'brush' ? 0.85 : 1);
@@ -1115,18 +1239,26 @@ function enableResizeHandle(handle, it, ctx) {
       const pt = svgPoint(ev);
       const newDist = Math.hypot(pt.x - anchorCx, pt.y - anchorCy);
       const ratio = Math.max(0.02, newDist / startDist);
-      if (it.type === 'image') {
-        it.width = Math.max(20, startW * ratio);
-        it.height = Math.max(20, startH * ratio);
+      if (it.type === 'image' || it.type === 'chart') {
+        it.width = Math.max(60, startW * ratio);
+        it.height = Math.max(60, startH * ratio);
       } else if (it.type === 'icon') {
         it.scale = Math.max(0.05, Math.min(8, startScale * ratio));
       } else if (it.type === 'text' || it.type === 'counter') {
         it.fontSize = Math.max(12, Math.min(600, startFS * ratio));
       }
-      updateItemRender(it);
+      // Chart's internal layout depends on width/height — rebuild via full canvas render
+      if (it.type === 'chart') {
+        renderCanvas();
+      } else {
+        updateItemRender(it);
+      }
       // Keep visual center fixed on the original anchor
       const c = getItemVisualCenter(it);
-      if (c) { it.x += anchorCx - c.x; it.y += anchorCy - c.y; updateItemRender(it); }
+      if (c) {
+        it.x += anchorCx - c.x; it.y += anchorCy - c.y;
+        if (it.type === 'chart') renderCanvas(); else updateItemRender(it);
+      }
       drawSelectionHandles();
       syncItemControls();
     }
@@ -1368,6 +1500,8 @@ function updateItemRender(it, el) {
     el.setAttribute('width', it.width); el.setAttribute('height', it.height);
     const tr = getImageTransform(it);
     if (tr) el.setAttribute('transform', tr); else el.removeAttribute('transform');
+  } else if (it.type === 'chart') {
+    el.setAttribute('transform', getChartTransform(it));
   }
 }
 function deleteItem(id) {
@@ -1696,6 +1830,156 @@ propDrawStyle.onchange = () => {
 
 propHandStyle.onchange = () => {
   setHandStyle(propHandStyle.value);
+  showHandTipEditor();
+};
+
+// ===== Hand size =====
+const HAND_SIZE_KEY = 'wb_hand_size';
+function setHandSize(px) {
+  const v = Math.max(60, Math.min(500, parseInt(px) || 200));
+  drawHand.style.width = v + 'px';
+  localStorage.setItem(HAND_SIZE_KEY, String(v));
+}
+const ctrlHandSize = document.getElementById('ctrl-hand-size');
+const lblHandSize = document.getElementById('lbl-hand-size');
+const savedHandSize = parseInt(localStorage.getItem(HAND_SIZE_KEY)) || 200;
+ctrlHandSize.value = savedHandSize;
+lblHandSize.textContent = savedHandSize;
+setHandSize(savedHandSize);
+ctrlHandSize.oninput = () => {
+  const v = parseInt(ctrlHandSize.value);
+  lblHandSize.textContent = v;
+  setHandSize(v);
+};
+
+function rebuildHandDropdown() {
+  const sel = propHandStyle;
+  const cur = sel.value;
+  sel.innerHTML = `
+    <option value="hand-light">✋ يد فاتحة + قلم</option>
+    <option value="hand-dark">✊ يد داكنة + قلم</option>
+    <option value="pencil">✏️ قلم رصاص</option>
+    <option value="marker">🖊 ماركر</option>
+    <option value="brush">🖌 فرشاة</option>
+  `;
+  if (customHands.length) {
+    const sep = document.createElement('option');
+    sep.disabled = true;
+    sep.textContent = '——— أيدى مخصصة ———';
+    sel.appendChild(sep);
+    customHands.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h.id;
+      opt.textContent = '🖼 ' + h.name;
+      sel.appendChild(opt);
+    });
+  }
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+rebuildHandDropdown();
+
+document.getElementById('hand-upload').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) return alert('الملف لازم يكون صورة');
+  const dataUrl = await new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(fr.result);
+    fr.onerror = rej;
+    fr.readAsDataURL(file);
+  });
+  const baseName = (file.name || '').replace(/\.[^.]+$/, '').trim();
+  const name = baseName || ('يد مخصصة ' + (customHands.length + 1));
+  const id = 'cust_' + Date.now();
+  customHands.push({ id, name, src: dataUrl, tipX: 0.05, tipY: 0.05 });
+  saveCustomHands();
+  rebuildHandDropdown();
+  setHandStyle(id);
+  propHandStyle.value = id;
+  showHandTipEditor();
+  flashStatus(`✓ تم إضافة "${name}" — اضبطى رأس القلم`);
+  e.target.value = '';
+};
+
+// ===== Hand tip editor (operates on the currently selected custom hand) =====
+const handTipEditor = document.getElementById('hand-tip-editor');
+const handPreview = document.getElementById('hand-preview');
+const handPreviewWrap = document.getElementById('hand-preview-wrap');
+const handTipMarker = document.getElementById('hand-tip-marker');
+const ctrlTipX = document.getElementById('ctrl-tip-x');
+const ctrlTipY = document.getElementById('ctrl-tip-y');
+const lblTipX = document.getElementById('lbl-tip-x');
+const lblTipY = document.getElementById('lbl-tip-y');
+
+function getCurrentCustom() { return findCustomHand(projectHandStyle); }
+
+function showHandTipEditor() {
+  const cur = getCurrentCustom();
+  if (!cur) { handTipEditor.style.display = 'none'; return; }
+  handTipEditor.style.display = '';
+  handPreview.src = cur.src;
+  ctrlTipX.value = Math.round(cur.tipX * 100);
+  ctrlTipY.value = Math.round(cur.tipY * 100);
+  lblTipX.textContent = ctrlTipX.value;
+  lblTipY.textContent = ctrlTipY.value;
+  handPreview.onload = updateTipMarker;
+  if (handPreview.complete) updateTipMarker();
+}
+
+function updateTipMarker() {
+  const cur = getCurrentCustom();
+  if (!cur) return;
+  const r = handPreview.getBoundingClientRect();
+  const wrapR = handPreviewWrap.getBoundingClientRect();
+  handTipMarker.style.left = ((r.left - wrapR.left) + cur.tipX * r.width) + 'px';
+  handTipMarker.style.top  = ((r.top - wrapR.top) + cur.tipY * r.height) + 'px';
+}
+
+ctrlTipX.oninput = () => {
+  const cur = getCurrentCustom(); if (!cur) return;
+  cur.tipX = parseInt(ctrlTipX.value) / 100;
+  lblTipX.textContent = ctrlTipX.value;
+  saveCustomHands();
+  if (projectHandStyle === cur.id) currentHandTipFrac.x = cur.tipX;
+  updateTipMarker();
+};
+ctrlTipY.oninput = () => {
+  const cur = getCurrentCustom(); if (!cur) return;
+  cur.tipY = parseInt(ctrlTipY.value) / 100;
+  lblTipY.textContent = ctrlTipY.value;
+  saveCustomHands();
+  if (projectHandStyle === cur.id) currentHandTipFrac.y = cur.tipY;
+  updateTipMarker();
+};
+
+handPreviewWrap.addEventListener('click', (e) => {
+  const cur = getCurrentCustom(); if (!cur) return;
+  const r = handPreview.getBoundingClientRect();
+  const px = (e.clientX - r.left) / r.width;
+  const py = (e.clientY - r.top) / r.height;
+  if (px < 0 || px > 1 || py < 0 || py > 1) return;
+  cur.tipX = Math.max(0, Math.min(1, px));
+  cur.tipY = Math.max(0, Math.min(1, py));
+  ctrlTipX.value = Math.round(cur.tipX * 100);
+  ctrlTipY.value = Math.round(cur.tipY * 100);
+  lblTipX.textContent = ctrlTipX.value;
+  lblTipY.textContent = ctrlTipY.value;
+  saveCustomHands();
+  if (projectHandStyle === cur.id) currentHandTipFrac = { x: cur.tipX, y: cur.tipY };
+  updateTipMarker();
+});
+
+document.getElementById('hand-delete').onclick = () => {
+  const cur = getCurrentCustom();
+  if (!cur) return;
+  if (!confirm(`حذف "${cur.name}"؟`)) return;
+  customHands = customHands.filter(h => h.id !== cur.id);
+  saveCustomHands();
+  rebuildHandDropdown();
+  setHandStyle('hand-light');
+  propHandStyle.value = 'hand-light';
+  handTipEditor.style.display = 'none';
+  flashStatus('✓ تم حذف اليد');
 };
 propDuration.addEventListener('pointerdown', beginAction);
 propDuration.addEventListener('focus', beginAction);
@@ -2485,8 +2769,10 @@ function positionHandAtSvgPoint(x, y) {
   const screenX = x * ctm.a + y * ctm.c + ctm.e;
   const screenY = x * ctm.b + y * ctm.d + ctm.f;
   const r = canvasFrame.getBoundingClientRect();
-  drawHand.style.left = (screenX - r.left - 10) + 'px';
-  drawHand.style.top  = (screenY - r.top - 5) + 'px';
+  const tipX = currentHandTipFrac.x * drawHand.offsetWidth;
+  const tipY = currentHandTipFrac.y * drawHand.offsetHeight;
+  drawHand.style.left = (screenX - r.left - tipX) + 'px';
+  drawHand.style.top  = (screenY - r.top - tipY) + 'px';
 }
 
 // ===== Universal motion effects =====
@@ -2630,8 +2916,10 @@ function animateIcon(it, sc, abort) {
             const screenX = pt.x * ctm.a + pt.y * ctm.c + ctm.e;
             const screenY = pt.x * ctm.b + pt.y * ctm.d + ctm.f;
             const fr = canvasFrame.getBoundingClientRect();
-            drawHand.style.left = (screenX - fr.left - 10) + 'px';
-            drawHand.style.top  = (screenY - fr.top - 5) + 'px';
+            const tipX = currentHandTipFrac.x * drawHand.offsetWidth;
+            const tipY = currentHandTipFrac.y * drawHand.offsetHeight;
+            drawHand.style.left = (screenX - fr.left - tipX) + 'px';
+            drawHand.style.top  = (screenY - fr.top - tipY) + 'px';
           }
         } catch {}
       }
@@ -2645,9 +2933,73 @@ function animateIcon(it, sc, abort) {
 // Effective effect for an item: per-item override > scene default
 function effectFor(it, sc) { return it.effect || sc.effect; }
 
+// =========== FONT LOADING (for hand-drawn text via opentype.js) ===========
+const FONT_URLS = {
+  'Cairo':       'https://cdn.jsdelivr.net/gh/Gue3bara/Cairo@master/fonts/ttf/Cairo-Regular.ttf',
+  'Tajawal':     'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Regular.ttf',
+  'Amiri':       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Regular.ttf',
+  'Almarai':     'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/almarai/Almarai-Regular.ttf',
+  'Lalezar':     'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/lalezar/Lalezar-Regular.ttf',
+  'Reem Kufi':   'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/reemkufi/ReemKufi-Regular.ttf',
+  'Aref Ruqaa':  'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/arefruqaa/ArefRuqaa-Regular.ttf',
+  'El Messiri':  'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/elmessiri/ElMessiri-Regular.ttf'
+};
+const fontCache = new Map();   // family → opentype.Font  (or null = failed)
+const fontPromises = new Map(); // family → Promise<font|null>
+
+function loadFontForPath(family) {
+  if (fontCache.has(family)) return Promise.resolve(fontCache.get(family));
+  if (fontPromises.has(family)) return fontPromises.get(family);
+  const url = FONT_URLS[family];
+  if (!url || !window.opentype) { fontCache.set(family, null); return Promise.resolve(null); }
+  const p = (async () => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const buf = await res.arrayBuffer();
+      const font = opentype.parse(buf);
+      fontCache.set(family, font);
+      return font;
+    } catch (e) {
+      console.warn('[font] load failed for', family, e);
+      fontCache.set(family, null);
+      return null;
+    }
+  })();
+  fontPromises.set(family, p);
+  return p;
+}
+
+// Build SVG path data for a multi-line text using opentype.js
+function buildTextPathData(it, font) {
+  const lines = String(it.text || '').split('\n');
+  const lh = it.lineHeight || 1.2;
+  let combined = '';
+  let baseY = it.y;
+  for (let i = 0; i < lines.length; i++) {
+    if (i > 0) baseY += it.fontSize * lh;
+    const line = lines[i];
+    if (!line) continue;
+    // text-anchor adjustment: middle/end shift x
+    let xPos = it.x;
+    if (it.align === 'middle' || it.align === 'end') {
+      try {
+        const w = font.getAdvanceWidth(line, it.fontSize);
+        if (it.align === 'middle') xPos -= w / 2;
+        else xPos -= w;
+      } catch {}
+    }
+    try {
+      const path = font.getPath(line, xPos, baseY, it.fontSize);
+      combined += path.toPathData(2) + ' ';
+    } catch (e) { /* skip line on failure */ }
+  }
+  return combined.trim();
+}
+
 // ===== Text animation =====
-function animateText(it, sc, abort) {
-  return new Promise(resolve => {
+async function animateText(it, sc, abort) {
+  return new Promise(async (resolve) => {
     const effect = effectFor(it, sc);
     const wrap = document.createElementNS(SVG_NS, 'g');
     const tr = getTextTransform(it); if (tr) wrap.setAttribute('transform', tr);
@@ -2664,7 +3016,58 @@ function animateText(it, sc, abort) {
       return;
     }
 
-    // Wipe reveal via clipPath
+    // Try the proper "trace each letter shape" hand-drawing using opentype.js paths
+    if (window.opentype) {
+      const font = await loadFontForPath(it.fontFamily || 'Cairo');
+      if (font && !abort.stop) {
+        const pathD = buildTextPathData(it, font);
+        if (pathD) {
+          // Replace rendered text with a stroked path; animate stroke-dashoffset.
+          // Hand follows the stroke head via getPointAtLength.
+          const pathEl = document.createElementNS(SVG_NS, 'path');
+          pathEl.setAttribute('d', pathD);
+          pathEl.setAttribute('fill', 'none');
+          pathEl.setAttribute('stroke', it.color);
+          pathEl.setAttribute('stroke-width', Math.max(1.5, it.fontSize * 0.045));
+          pathEl.setAttribute('stroke-linecap', 'round');
+          pathEl.setAttribute('stroke-linejoin', 'round');
+          wrap.replaceChildren(pathEl);
+          let totalLen = 0;
+          try { totalLen = pathEl.getTotalLength(); } catch {}
+          if (totalLen > 0) {
+            pathEl.style.strokeDasharray = totalLen;
+            pathEl.style.strokeDashoffset = totalLen;
+            drawHand.classList.add('visible');
+            const start = performance.now();
+            const dur = sc.duration * 1000;
+            function frame(now) {
+              if (abort.stop) return resolve();
+              const t01 = Math.min(1, (now - start) / dur);
+              const target = totalLen * t01;
+              pathEl.style.strokeDashoffset = totalLen - target;
+              try {
+                const pt = pathEl.getPointAtLength(target);
+                positionHandAtSvgPoint(pt.x, pt.y);
+              } catch {}
+              if (t01 < 1) requestAnimationFrame(frame);
+              else {
+                // Fill the text once finished — looks crisper than a thin stroke
+                pathEl.setAttribute('fill', it.color);
+                pathEl.style.strokeDasharray = '';
+                pathEl.style.strokeDashoffset = '';
+                pathEl.setAttribute('stroke', 'none');
+                resolve();
+              }
+            }
+            requestAnimationFrame(frame);
+            return;
+          }
+        }
+      }
+    }
+    // === Fallback: clip-path wipe (if opentype/font unavailable) ===
+
+    // Wipe reveal via clipPath — character-by-character when possible
     let defs = board.querySelector('defs');
     if (!defs) { defs = document.createElementNS(SVG_NS, 'defs'); board.appendChild(defs); }
     const clipId = 'clip-' + it.id + '-' + Date.now();
@@ -2679,27 +3082,94 @@ function animateText(it, sc, abort) {
     defs.appendChild(clip);
     t.setAttribute('clip-path', `url(#${clipId})`);
 
+    // Try to extract per-character flow positions (more reliable than extents for RTL/ligatures).
+    // We collect: startX (where the first char begins) + endX after each char (where pen finishes that char).
+    const isSingleLine = !String(it.text || '').includes('\n');
+    let charPositions = null;
+    if (isSingleLine && t.getNumberOfChars && t.getStartPositionOfChar && t.getEndPositionOfChar) {
+      try {
+        const N = t.getNumberOfChars();
+        if (N > 0) {
+          let startX = null;
+          try { startX = t.getStartPositionOfChar(0).x; } catch {}
+          const ends = [];
+          for (let i = 0; i < N; i++) {
+            let x = null;
+            try { x = t.getEndPositionOfChar(i).x; } catch {}
+            // Fall back: if this char failed, reuse the previous successful end (zero-width)
+            if (x == null) x = (ends.length ? ends[ends.length - 1] : startX);
+            ends.push(x);
+          }
+          if (startX == null && ends.length) startX = ends[0];
+          if (startX != null && ends.length) {
+            // Drop consecutive duplicates that didn't advance — they cause stalls
+            const cleaned = [];
+            ends.forEach(x => {
+              const last = cleaned.length ? cleaned[cleaned.length - 1] : startX;
+              if (Math.abs(x - last) > 0.1) cleaned.push(x);
+            });
+            if (cleaned.length) charPositions = { startX, ends: cleaned };
+          }
+        }
+      } catch {}
+    }
+
     drawHand.classList.add('visible');
     const start = performance.now();
     const dur = sc.duration * 1000;
-    function frame(now) {
-      if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
-      const t01 = Math.min(1, (now - start) / dur);
-      const w = bbox.width * t01;
-      let handX, handY = bbox.y + bbox.height * 0.7;
-      if (it.isRTL) {
-        rect.setAttribute('x', bbox.x + bbox.width - w);
-        rect.setAttribute('width', w);
-        handX = bbox.x + bbox.width - w;
-      } else {
-        rect.setAttribute('width', w);
-        handX = bbox.x + w;
+    const handY = bbox.y + bbox.height * 0.7;
+
+    if (charPositions) {
+      const { startX, ends } = charPositions;
+      const N = ends.length;
+      const goingLeft = ends[N - 1] < startX;
+      // Each char: 75% drawing + 25% pause → makes the per-character motion clearly visible
+      const DRAW_FRAC = 0.75;
+
+      function frame(now) {
+        if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
+        const t01 = Math.min(1, (now - start) / dur);
+        const charPos = t01 * N;
+        const fullIdx = Math.min(N - 1, Math.floor(charPos));
+        const localFrac = Math.min(1, charPos - fullIdx);
+        const drawProgress = Math.min(1, localFrac / DRAW_FRAC); // pauses at 1 during last 25%
+        const prevX = fullIdx === 0 ? startX : ends[fullIdx - 1];
+        const nextX = ends[fullIdx];
+        const edge = prevX + (nextX - prevX) * drawProgress;
+
+        if (goingLeft) {
+          rect.setAttribute('x', edge);
+          rect.setAttribute('width', Math.max(0, startX - edge));
+        } else {
+          rect.setAttribute('x', startX);
+          rect.setAttribute('width', Math.max(0, edge - startX));
+        }
+        positionHandAtSvgPoint(edge, handY);
+        if (t01 < 1) requestAnimationFrame(frame);
+        else resolve();
       }
-      positionHandAtSvgPoint(handX, handY);
-      if (t01 < 1) requestAnimationFrame(frame);
-      else resolve();
+      requestAnimationFrame(frame);
+    } else {
+      // Fallback: bbox-wide single wipe
+      function frame(now) {
+        if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
+        const t01 = Math.min(1, (now - start) / dur);
+        const w = bbox.width * t01;
+        let handX;
+        if (it.isRTL) {
+          rect.setAttribute('x', bbox.x + bbox.width - w);
+          rect.setAttribute('width', w);
+          handX = bbox.x + bbox.width - w;
+        } else {
+          rect.setAttribute('width', w);
+          handX = bbox.x + w;
+        }
+        positionHandAtSvgPoint(handX, handY);
+        if (t01 < 1) requestAnimationFrame(frame);
+        else resolve();
+      }
+      requestAnimationFrame(frame);
     }
-    requestAnimationFrame(frame);
   });
 }
 

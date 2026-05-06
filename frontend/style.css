@@ -207,6 +207,35 @@ input, select { font-family: inherit; }
 .prop-grid:last-child { margin-bottom: 0; }
 .prop-section .prop-row:last-child { margin-bottom: 0; }
 
+/* Hand preview / tip editor */
+.hand-preview-wrap {
+  position: relative;
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+  text-align: center;
+  cursor: crosshair;
+}
+.hand-preview-wrap img {
+  max-width: 100%;
+  max-height: 140px;
+  display: inline-block;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+.hand-tip-marker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #ff4444;
+  background: rgba(255, 68, 68, 0.4);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px white, 0 1px 4px rgba(0,0,0,0.4);
+}
+
 /* Chart data editor */
 .chart-data-rows {
   display: flex;
@@ -550,14 +579,14 @@ input, select { font-family: inherit; }
 }
 #draw-hand {
   position: absolute;
-  width: 90px;
+  width: 200px;
   height: auto;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
-  transform-origin: 20% 10%;
+  transform-origin: 5% 5%;
   z-index: 10;
-  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.35));
 }
 #draw-hand.visible { opacity: 1; }
 
