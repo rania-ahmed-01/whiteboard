@@ -15,14 +15,26 @@
       <span class="logo">✏️</span>
       <h1>WhiteBoard Studio</h1>
     </div>
-    <input class="project-name" id="project-name" value="مشروعى الأول" />
+    <div class="project-name-wrap" title="انقرى لتعديل اسم المشروع">
+      <span class="project-name-icon">📁</span>
+      <input class="project-name" id="project-name" value="مشروعى الأول" placeholder="اسم المشروع" />
+      <span class="project-name-edit">✏️</span>
+    </div>
     <div class="actions">
-      <button class="btn-ghost btn-icon" id="btn-undo" title="تراجع (Ctrl+Z)" disabled>↶</button>
-      <button class="btn-ghost btn-icon" id="btn-redo" title="إعادة (Ctrl+Y)" disabled>↷</button>
-      <button class="btn-ghost" id="btn-add-text">+ نص</button>
-      <button class="btn-ghost" id="btn-add-scene">+ مشهد</button>
-      <button class="btn-ghost" id="btn-save">💾 حفظ</button>
-      <button class="btn-ghost" id="btn-load">📂 مشاريعى</button>
+      <div class="btn-group">
+        <button class="btn-ghost btn-icon" id="btn-undo" title="تراجع (Ctrl+Z)" disabled>↶</button>
+        <button class="btn-ghost btn-icon" id="btn-redo" title="إعادة (Ctrl+Y)" disabled>↷</button>
+      </div>
+      <div class="btn-group">
+        <button class="btn-ghost" id="btn-add-text" title="إضافة نص">+ نص</button>
+        <button class="btn-ghost" id="btn-add-counter" title="إضافة عدّاد رقمى">+ رقم</button>
+        <button class="btn-ghost" id="btn-add-chart" title="إضافة رسم بيانى">+ رسم</button>
+        <button class="btn-ghost" id="btn-add-scene" title="إضافة مشهد جديد">+ مشهد</button>
+      </div>
+      <div class="btn-group">
+        <button class="btn-ghost" id="btn-save" title="حفظ المشروع">💾 حفظ</button>
+        <button class="btn-ghost" id="btn-load" title="فتح مشروع">📂 مشاريعى</button>
+      </div>
       <button class="btn-primary" id="btn-export">🎬 تصدير فيديو</button>
       <span class="user-chip" id="user-chip" style="display:none;">
         <span id="user-email"></span>
@@ -70,130 +82,347 @@
 
     <!-- Properties panel -->
     <aside class="sidebar props">
-      <h3>خصائص المشهد</h3>
-      <div class="prop-row">
-        <label>مدة الرسم (ثانية)</label>
-        <input type="number" id="prop-duration" min="0.5" max="20" step="0.5" value="3" />
-      </div>
-      <div class="prop-row">
-        <label>تأثير الدخول</label>
-        <select id="prop-effect">
-          <option value="draw">✏️ رسم يدوى</option>
-          <option value="fade">🌫 تلاشى</option>
-          <option value="pop">💥 نبض</option>
-          <option value="spin">🌀 دوران</option>
-          <option value="shake">📳 اهتزاز</option>
-          <option value="bounce">⬇️ ارتداد</option>
-          <option value="zoom">🔍 تكبير</option>
-          <option value="slide-r">⬅️ انزلاق يمين</option>
-          <option value="slide-l">➡️ انزلاق يسار</option>
-          <option value="slide-u">⬆️ انزلاق أعلى</option>
-          <option value="slide-d">⬇️ انزلاق أسفل</option>
-          <option value="flip-x">🔄 قلب أفقى</option>
-          <option value="flip-y">🔃 قلب رأسى</option>
-        </select>
-      </div>
-      <div class="prop-row">
-        <label>لون الخط</label>
-        <input type="color" id="prop-color" value="#222222" />
-      </div>
-      <div class="prop-row">
-        <label>سمك الخط</label>
-        <input type="range" id="prop-stroke" min="1" max="8" value="2.5" step="0.5" />
-      </div>
-      <hr />
-      <h3>خلفية المشهد</h3>
-      <div class="prop-row">
-        <label>النوع</label>
-        <select id="bg-type">
-          <option value="none">بدون</option>
-          <option value="solid">لون فقط</option>
-          <option value="grid">مربعات</option>
-          <option value="lines">أسطر دفتر</option>
-          <option value="dots">نقط</option>
-          <option value="graph">ورق رسم بيانى</option>
-          <option value="image">صورة</option>
-        </select>
-      </div>
-      <div class="prop-row" id="bg-color-row" style="display:none;">
-        <label>لون الخلفية</label>
-        <input type="color" id="bg-color" value="#ffffff" />
-      </div>
-      <div class="prop-row" id="bg-line-color-row" style="display:none;">
-        <label>لون النقش</label>
-        <input type="color" id="bg-line-color" value="#cfd8e6" />
-      </div>
-      <div class="prop-row" id="bg-image-row" style="display:none;">
-        <label for="bg-upload" class="upload-btn" style="margin:0;">🖼 اختر صورة</label>
-        <input type="file" id="bg-upload" accept="image/*" hidden />
-        <button class="btn-ghost btn-sm" id="btn-bg-clear" style="width:100%; margin-top:6px;">إزالة الصورة</button>
-      </div>
-      <hr />
-      <div id="item-controls" class="item-controls" style="display:none;">
-        <h3>العنصر المحدد</h3>
-        <div class="prop-row">
-          <label>الحجم <span id="lbl-scale">60%</span></label>
-          <input type="range" id="ctrl-scale" min="10" max="300" value="60" step="1" />
+      <nav class="side-tabs" role="tablist">
+        <button class="side-tab active" data-pane="scene" type="button">🎬 المشهد</button>
+        <button class="side-tab" data-pane="item" type="button">🎯 العنصر</button>
+        <button class="side-tab" data-pane="audio" type="button">🎵 الصوت</button>
+      </nav>
+
+      <!-- ===== Scene pane ===== -->
+      <div class="pane active" data-pane="scene">
+        <div class="prop-section">
+          <div class="prop-grid">
+            <div class="prop-row">
+              <label>المدة (ث)</label>
+              <input type="number" id="prop-duration" min="0.5" max="20" step="0.5" value="3" />
+            </div>
+            <div class="prop-row">
+              <label>اللون</label>
+              <input type="color" id="prop-color" value="#222222" />
+            </div>
+          </div>
+          <div class="prop-row">
+            <label>تأثير الدخول</label>
+            <select id="prop-effect">
+              <option value="draw">✏️ رسم يدوى</option>
+              <option value="fade">🌫 تلاشى</option>
+              <option value="pop">💥 نبض</option>
+              <option value="spin">🌀 دوران</option>
+              <option value="shake">📳 اهتزاز</option>
+              <option value="bounce">⬇️ ارتداد</option>
+              <option value="zoom">🔍 تكبير</option>
+              <option value="slide-r">⬅️ انزلاق يمين</option>
+              <option value="slide-l">➡️ انزلاق يسار</option>
+              <option value="slide-u">⬆️ انزلاق أعلى</option>
+              <option value="slide-d">⬇️ انزلاق أسفل</option>
+              <option value="flip-x">🔄 قلب أفقى</option>
+              <option value="flip-y">🔃 قلب رأسى</option>
+            </select>
+          </div>
+          <div class="prop-row">
+            <label>سمك الخط</label>
+            <input type="range" id="prop-stroke" min="1" max="8" value="2.5" step="0.5" />
+          </div>
         </div>
-        <div class="prop-row">
-          <label>الدوران <span id="lbl-rot">0°</span></label>
-          <input type="range" id="ctrl-rot" min="-180" max="180" value="0" step="1" />
+
+        <div class="prop-section">
+          <div class="section-label">الخلفية</div>
+          <div class="prop-row">
+            <select id="bg-type">
+              <option value="none">بدون خلفية</option>
+              <option value="solid">لون فقط</option>
+              <option value="grid">📐 مربعات</option>
+              <option value="lines">📝 أسطر دفتر</option>
+              <option value="dots">⋯ نقط</option>
+              <option value="graph">📊 ورق رسم بيانى</option>
+              <option value="image">🖼 صورة</option>
+            </select>
+          </div>
+          <div class="prop-grid" id="bg-colors-row" style="display:none;">
+            <div class="prop-row" id="bg-color-row" style="display:none;">
+              <label>الخلفية</label>
+              <input type="color" id="bg-color" value="#ffffff" />
+            </div>
+            <div class="prop-row" id="bg-line-color-row" style="display:none;">
+              <label>النقش</label>
+              <input type="color" id="bg-line-color" value="#cfd8e6" />
+            </div>
+          </div>
+          <div class="prop-row" id="bg-image-row" style="display:none;">
+            <label for="bg-upload" class="upload-btn" style="margin:0;">🖼 اختر صورة</label>
+            <input type="file" id="bg-upload" accept="image/*" hidden />
+            <button class="btn-ghost btn-sm" id="btn-bg-clear" style="width:100%; margin-top:6px;">إزالة الصورة</button>
+          </div>
         </div>
-        <div class="prop-row" id="ctrl-font-row" style="display:none;">
-          <label>الخط</label>
-          <select id="ctrl-font">
-            <option value="Cairo" style="font-family:Cairo;">Cairo — كايرو</option>
-            <option value="Tajawal" style="font-family:Tajawal;">Tajawal — تجوّل</option>
-            <option value="Amiri" style="font-family:Amiri;">Amiri — أميرى</option>
-            <option value="Aref Ruqaa" style="font-family:'Aref Ruqaa';">Diwani — ديوانى</option>
-            <option value="El Messiri" style="font-family:'El Messiri';">El Messiri — المسيرى</option>
-            <option value="Reem Kufi" style="font-family:'Reem Kufi';">Reem Kufi — كوفى</option>
-            <option value="Lalezar" style="font-family:Lalezar;">Lalezar — لاله زار</option>
-            <option value="Almarai" style="font-family:Almarai;">Almarai — المراعى</option>
-          </select>
+
+        <div class="prop-section">
+          <div class="section-label">🎥 حركة الكاميرا (Pan & Zoom)</div>
+          <div class="prop-row toggle-row">
+            <label for="cam-enabled" style="flex:1; margin:0;">تفعيل</label>
+            <input type="checkbox" id="cam-enabled" />
+          </div>
+          <div id="cam-controls" style="display:none;">
+            <p class="hint-text">حرّكى اللوحة (مسطرة + سحب) وكبّرى/صغّرى (Ctrl + عجلة) ثم احفظى الحالة:</p>
+            <div class="prop-grid">
+              <button class="btn-ghost btn-sm" id="cam-set-start" title="استخدم viewport الحالى كبداية">📍 احفظ بداية</button>
+              <button class="btn-ghost btn-sm" id="cam-set-end" title="استخدم viewport الحالى كنهاية">🎬 احفظ نهاية</button>
+            </div>
+            <div class="prop-grid">
+              <button class="btn-ghost btn-sm" id="cam-view-start">👁 شوفى البداية</button>
+              <button class="btn-ghost btn-sm" id="cam-view-end">👁 شوفى النهاية</button>
+            </div>
+            <button class="btn-ghost btn-sm" id="cam-reset" style="width:100%; margin-top:6px;">↺ مسح الإعدادات</button>
+            <div id="cam-status" class="cam-status"></div>
+          </div>
         </div>
-        <div class="flip-row">
-          <button class="btn-ghost btn-sm" id="ctrl-flip-x" title="قلب أفقى">⬌ قلب أفقى</button>
-          <button class="btn-ghost btn-sm" id="ctrl-flip-y" title="قلب رأسى">⬍ قلب رأسى</button>
+
+        <div class="prop-section">
+          <div class="section-label">🧹 انتقال الخروج (للمشهد التالى)</div>
+          <div class="prop-grid">
+            <div class="prop-row">
+              <label>النوع</label>
+              <select id="prop-exit-transition">
+                <option value="none">بدون (قطع)</option>
+                <option value="erase">🧹 مسح</option>
+                <option value="fade">🌫 تلاشى</option>
+              </select>
+            </div>
+            <div class="prop-row">
+              <label>المدة (ث)</label>
+              <input type="number" id="prop-exit-duration" min="0.3" max="5" step="0.1" value="1.5" />
+            </div>
+          </div>
         </div>
-        <div class="flip-row">
-          <button class="btn-ghost btn-sm" id="ctrl-front">⬆ للأمام</button>
-          <button class="btn-ghost btn-sm" id="ctrl-back">⬇ للخلف</button>
+
+        <div class="prop-section">
+          <div class="section-label">أسلوب الرسم</div>
+          <div class="prop-grid">
+            <div class="prop-row">
+              <label>القلم</label>
+              <select id="prop-draw-style">
+                <option value="pen">🖋 حبر</option>
+                <option value="pencil">✏️ قلم رصاص</option>
+                <option value="marker">🖊 ماركر</option>
+                <option value="brush">🖌 فرشاة</option>
+              </select>
+            </div>
+            <div class="prop-row">
+              <label>اليد</label>
+              <select id="prop-hand-style">
+                <option value="hand-light">✋ يد فاتحة</option>
+                <option value="hand-dark">✊ يد داكنة</option>
+                <option value="pencil">✏️ قلم</option>
+                <option value="marker">🖊 ماركر</option>
+                <option value="brush">🖌 فرشاة</option>
+              </select>
+            </div>
+          </div>
         </div>
-        <button class="btn-ghost btn-sm" id="ctrl-reset" style="width:100%; margin-top:8px;">↺ إعادة تعيين</button>
-        <button class="btn-ghost btn-sm" id="ctrl-duplicate" style="width:100%; margin-top:6px;">📋 نسخ العنصر (Ctrl+D)</button>
-        <button class="btn-ghost btn-sm" id="ctrl-delete" style="width:100%; margin-top:6px; color:#ff7878;">🗑 حذف العنصر</button>
-        <hr />
       </div>
-      <h3>الصوت</h3>
-      <div class="prop-row">
-        <label for="audio-upload" class="upload-btn" style="margin:0">🎵 رفع موسيقى</label>
-        <input type="file" id="audio-upload" accept="audio/*" hidden />
-      </div>
-      <div class="flip-row" style="margin-top:6px;">
-        <button class="btn-ghost btn-sm" id="btn-rec-start">🔴 تسجيل</button>
-        <button class="btn-ghost btn-sm" id="btn-rec-stop" disabled>⏹ إيقاف</button>
-      </div>
-      <span id="rec-timer" style="display:block; text-align:center; font-family:monospace; color:var(--accent); margin-top:4px;"></span>
-      <audio id="bg-audio" controls style="width:100%; margin-top:8px; display:none;"></audio>
-      <div id="audio-edit" style="display:none;">
-        <div class="prop-row" style="margin-top:8px;">
-          <label>السرعة <span id="lbl-speed">1.0x</span></label>
-          <input type="range" id="ctrl-speed" min="0.5" max="2" step="0.1" value="1" />
+
+      <!-- ===== Item pane ===== -->
+      <div class="pane" data-pane="item">
+        <!-- Layers panel: shows all items in current scene -->
+        <div class="layers-header">
+          <span>📚 طبقات المشهد</span>
+          <span class="layers-count" id="layers-count">0</span>
         </div>
-        <div class="prop-row">
-          <label>القص — البداية <span id="lbl-trim-s">0.0s</span></label>
-          <input type="range" id="ctrl-trim-start" min="0" max="100" step="0.1" value="0" />
+        <div id="layers-list" class="layers-list"></div>
+        <p class="hint-text" style="margin: 4px 0 12px;">اسحبى لإعادة الترتيب • الترقيم = ترتيب الرسم</p>
+
+        <div id="no-selection" class="empty-state">
+          <div class="empty-icon">🎯</div>
+          <p>اختارى عنصر من القائمة<br/>أو اللوحة لتعديل خصائصه</p>
         </div>
-        <div class="prop-row">
-          <label>القص — النهاية <span id="lbl-trim-e">0.0s</span></label>
-          <input type="range" id="ctrl-trim-end" min="0" max="100" step="0.1" value="100" />
+        <div id="item-controls" class="item-controls" style="display:none;">
+          <!-- Multi-select header (only shown when 2+ items selected) -->
+          <div id="multi-header" class="multi-header" style="display:none;">
+            <span id="multi-count">0</span> عنصر مختار
+          </div>
+
+          <!-- Item-specific effect (overrides scene default) -->
+          <div class="prop-section">
+            <div class="section-label">تأثير دخول العنصر</div>
+            <div class="prop-row">
+              <select id="ctrl-effect">
+                <option value="">⚙️ افتراضى المشهد</option>
+                <option value="draw">✏️ رسم يدوى</option>
+                <option value="fade">🌫 تلاشى</option>
+                <option value="pop">💥 نبض</option>
+                <option value="spin">🌀 دوران</option>
+                <option value="shake">📳 اهتزاز</option>
+                <option value="bounce">⬇️ ارتداد</option>
+                <option value="zoom">🔍 تكبير</option>
+                <option value="slide-r">⬅️ انزلاق يمين</option>
+                <option value="slide-l">➡️ انزلاق يسار</option>
+                <option value="slide-u">⬆️ انزلاق أعلى</option>
+                <option value="slide-d">⬇️ انزلاق أسفل</option>
+                <option value="flip-x">🔄 قلب أفقى</option>
+                <option value="flip-y">🔃 قلب رأسى</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Transform group -->
+          <div class="prop-section" id="transform-section">
+            <div class="prop-row">
+              <label>الحجم <span id="lbl-scale">60%</span></label>
+              <input type="range" id="ctrl-scale" min="10" max="300" value="60" step="1" />
+            </div>
+            <div class="prop-row">
+              <label>الدوران <span id="lbl-rot">0°</span></label>
+              <input type="range" id="ctrl-rot" min="-180" max="180" value="0" step="1" />
+            </div>
+            <div class="flip-row">
+              <button class="btn-ghost btn-sm" id="ctrl-flip-x" title="قلب أفقى">⬌ أفقى</button>
+              <button class="btn-ghost btn-sm" id="ctrl-flip-y" title="قلب رأسى">⬍ رأسى</button>
+            </div>
+          </div>
+
+          <!-- Text/counter font (shared) -->
+          <div class="prop-section" id="ctrl-font-row" style="display:none;">
+            <div class="section-label">الخط</div>
+            <div class="prop-row">
+              <select id="ctrl-font">
+                <option value="Cairo" style="font-family:Cairo;">Cairo — كايرو</option>
+                <option value="Tajawal" style="font-family:Tajawal;">Tajawal — تجوّل</option>
+                <option value="Amiri" style="font-family:Amiri;">Amiri — أميرى</option>
+                <option value="Aref Ruqaa" style="font-family:'Aref Ruqaa';">Diwani — ديوانى</option>
+                <option value="El Messiri" style="font-family:'El Messiri';">El Messiri — المسيرى</option>
+                <option value="Reem Kufi" style="font-family:'Reem Kufi';">Reem Kufi — كوفى</option>
+                <option value="Lalezar" style="font-family:Lalezar;">Lalezar — لاله زار</option>
+                <option value="Almarai" style="font-family:Almarai;">Almarai — المراعى</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Text-only formatting -->
+          <div class="prop-section" id="text-format-block" style="display:none;">
+            <div class="section-label">تنسيق النص</div>
+            <div class="flip-row">
+              <button class="btn-ghost btn-sm fmt-btn" id="ctrl-bold" title="عريض"><b>B</b></button>
+              <button class="btn-ghost btn-sm fmt-btn" id="ctrl-italic" title="مائل"><i>I</i></button>
+              <button class="btn-ghost btn-sm fmt-btn" id="ctrl-underline" title="تسطير"><u>U</u></button>
+            </div>
+            <div class="prop-grid">
+              <div class="prop-row">
+                <label>المحاذاة</label>
+                <select id="ctrl-align">
+                  <option value="start">بداية</option>
+                  <option value="middle">وسط</option>
+                  <option value="end">نهاية</option>
+                </select>
+              </div>
+              <div class="prop-row">
+                <label>التباعد <span id="lbl-line-height">1.2</span></label>
+                <input type="range" id="ctrl-line-height" min="0.8" max="2.5" step="0.1" value="1.2" />
+              </div>
+            </div>
+            <button class="btn-ghost btn-sm" id="ctrl-edit-text" style="width:100%;">✏️ تعديل النص</button>
+          </div>
+
+          <!-- Chart-only -->
+          <div class="prop-section" id="chart-block" style="display:none;">
+            <div class="section-label">إعدادات الرسم</div>
+            <div class="prop-row">
+              <label>النوع</label>
+              <select id="ctrl-chart-type">
+                <option value="bar">📊 أعمدة (Bar)</option>
+                <option value="line">📈 خط (Line)</option>
+                <option value="pie">🥧 دائرى (Pie)</option>
+              </select>
+            </div>
+            <div class="section-label" style="margin-top:8px;">البيانات</div>
+            <div id="chart-data-rows" class="chart-data-rows"></div>
+            <button class="btn-ghost btn-sm" id="ctrl-chart-add" style="width:100%;">+ إضافة قيمة</button>
+          </div>
+
+          <!-- Counter-only -->
+          <div class="prop-section" id="counter-block" style="display:none;">
+            <div class="section-label">إعدادات الرقم</div>
+            <div class="prop-grid">
+              <div class="prop-row">
+                <label>من</label>
+                <input type="number" id="ctrl-counter-from" value="0" />
+              </div>
+              <div class="prop-row">
+                <label>إلى</label>
+                <input type="number" id="ctrl-counter-to" value="100" />
+              </div>
+            </div>
+            <div class="prop-grid">
+              <div class="prop-row">
+                <label>قبل</label>
+                <input type="text" id="ctrl-counter-prefix" placeholder="$" />
+              </div>
+              <div class="prop-row">
+                <label>بعد</label>
+                <input type="text" id="ctrl-counter-suffix" placeholder="%" />
+              </div>
+            </div>
+            <div class="prop-grid">
+              <div class="prop-row">
+                <label>خانات عشرية</label>
+                <input type="number" id="ctrl-counter-decimals" value="0" min="0" max="6" />
+              </div>
+              <div class="prop-row">
+                <label>فاصل آلاف</label>
+                <button class="btn-ghost btn-sm" id="ctrl-counter-sep" style="width:100%;" title="1,000 ⇄ 1000">1,000</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Order/actions -->
+          <div class="prop-section">
+            <div class="flip-row">
+              <button class="btn-ghost btn-sm" id="ctrl-front" title="للأمام">⬆ للأمام</button>
+              <button class="btn-ghost btn-sm" id="ctrl-back" title="للخلف">⬇ للخلف</button>
+            </div>
+            <div class="flip-row">
+              <button class="btn-ghost btn-sm" id="ctrl-duplicate" title="نسخ العنصر">📋 نسخ</button>
+              <button class="btn-ghost btn-sm" id="ctrl-reset" title="إعادة تعيين">↺ تعيين</button>
+            </div>
+            <button class="btn-ghost btn-sm danger" id="ctrl-delete" style="width:100%; margin-top:6px;">🗑 حذف العنصر</button>
+          </div>
         </div>
-        <button class="btn-ghost btn-sm" id="btn-audio-preview" style="width:100%;">▶ معاينة المقطوع</button>
       </div>
-      <hr />
-      <h3>المشاهد</h3>
-      <ul class="scenes" id="scenes-list"></ul>
+
+      <!-- ===== Audio pane ===== -->
+      <div class="pane" data-pane="audio">
+        <div class="prop-section">
+          <div class="prop-grid">
+            <label for="audio-upload" class="upload-btn" style="margin:0; flex:1; text-align:center;">🎵 رفع</label>
+            <input type="file" id="audio-upload" accept="audio/*" hidden />
+            <button class="btn-ghost btn-sm" id="btn-rec-start">🔴 تسجيل</button>
+          </div>
+          <div class="flip-row" style="margin-top:6px;">
+            <button class="btn-ghost btn-sm" id="btn-rec-stop" disabled style="width:100%;">⏹ إيقاف التسجيل</button>
+          </div>
+          <span id="rec-timer" style="display:block; text-align:center; font-family:monospace; color:var(--accent); margin-top:4px;"></span>
+          <audio id="bg-audio" controls style="width:100%; margin-top:8px; display:none;"></audio>
+        </div>
+        <div class="prop-section" id="audio-edit" style="display:none;">
+          <div class="section-label">تعديل الصوت</div>
+          <div class="prop-row">
+            <label>السرعة <span id="lbl-speed">1.0x</span></label>
+            <input type="range" id="ctrl-speed" min="0.5" max="2" step="0.1" value="1" />
+          </div>
+          <div class="prop-grid">
+            <div class="prop-row">
+              <label>قص — بداية <span id="lbl-trim-s">0.0s</span></label>
+              <input type="range" id="ctrl-trim-start" min="0" max="100" step="0.1" value="0" />
+            </div>
+            <div class="prop-row">
+              <label>قص — نهاية <span id="lbl-trim-e">0.0s</span></label>
+              <input type="range" id="ctrl-trim-end" min="0" max="100" step="0.1" value="100" />
+            </div>
+          </div>
+          <button class="btn-ghost btn-sm" id="btn-audio-preview" style="width:100%;">▶ معاينة المقطوع</button>
+        </div>
+      </div>
+
+      <!-- Hidden — kept for backward-compat with app.js (renderScenes references it) -->
+      <ul class="scenes" id="scenes-list" style="display:none;"></ul>
     </aside>
   </main>
 
@@ -204,13 +433,15 @@
   </footer>
 
   <!-- Auth modal -->
-  <div id="auth-modal" class="modal show">
+  <div id="auth-modal" class="modal show" data-no-backdrop-close>
     <div class="modal-box auth-box">
-      <h2>WhiteBoard Studio</h2>
+      <div class="modal-header">
+        <h2>WhiteBoard Studio</h2>
+      </div>
       <p class="muted" id="auth-subtitle">سجّل دخولك للبدء</p>
       <div class="auth-tabs">
-        <button class="tab active" data-tab="login">دخول</button>
-        <button class="tab" data-tab="register">حساب جديد</button>
+        <button class="tab active" data-tab="login" type="button">دخول</button>
+        <button class="tab" data-tab="register" type="button">حساب جديد</button>
       </div>
       <div id="auth-error" class="auth-error"></div>
       <form id="auth-form">
@@ -222,12 +453,28 @@
     </div>
   </div>
 
+  <!-- Text editing modal -->
+  <div id="text-modal" class="modal">
+    <div class="modal-box" style="max-width:520px;">
+      <div class="modal-header">
+        <h2 id="text-modal-title">نص جديد</h2>
+        <button class="modal-close" id="text-modal-close" type="button" title="إغلاق">✕</button>
+      </div>
+      <p class="muted">اضغطى Enter لسطر جديد</p>
+      <textarea id="text-modal-input" rows="6" placeholder="اكتبى النص هنا..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-ghost" id="text-modal-cancel" type="button">إلغاء</button>
+        <button class="btn-primary" id="text-modal-ok" type="button">تأكيد</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Projects modal -->
   <div id="projects-modal" class="modal">
-    <div class="modal-box" style="max-width:600px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="modal-box" style="max-width:620px;">
+      <div class="modal-header">
         <h2>مشاريعى</h2>
-        <button class="btn-ghost btn-sm" id="projects-close">✕</button>
+        <button class="modal-close" id="projects-close" type="button" title="إغلاق">✕</button>
       </div>
       <div id="projects-list" class="projects-list"></div>
     </div>

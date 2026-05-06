@@ -21,14 +21,46 @@ const propColor = document.getElementById('prop-color');
 const propStroke = document.getElementById('prop-stroke');
 
 let scenes = [
-  { id: 1, name: 'مشهد 1', items: [], duration: 3, effect: 'draw', color: '#222', stroke: 2.5, background: null }
+  { id: 1, name: 'مشهد 1', items: [], duration: 3, effect: 'draw', color: '#222', stroke: 2.5, background: null, drawStyle: 'pen', camera: null }
 ];
 let currentSceneId = 1;
 let nextItemId = 1;
 let nextSceneId = 2;
 let isPlaying = false;
 let playAbort = null;
-let selectedItemId = null;
+let selectedIds = new Set();
+let projectHandStyle = 'hand-light';
+
+// =========== SELECTION HELPERS ===========
+function isSelected(id) { return selectedIds.has(id); }
+function selectOnly(id) { selectedIds.clear(); selectedIds.add(id); }
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+}
+function clearSelection() { selectedIds.clear(); }
+function getSelectedItems() {
+  if (!selectedIds.size) return [];
+  return currentScene().items.filter(it => selectedIds.has(it.id));
+}
+function firstSelectedId() {
+  return selectedIds.size ? selectedIds.values().next().value : null;
+}
+
+// =========== HAND STYLES ===========
+const HAND_STYLES = {
+  'hand-light': `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M30 150 Q25 100 35 70 L40 30 Q42 18 52 18 Q62 18 60 32 L58 60 L65 25 Q67 12 78 14 Q88 16 84 30 L78 65 L86 32 Q90 20 100 24 Q108 28 102 42 L92 75 L98 55 Q104 45 112 50 Q118 55 110 70 L92 110 Q88 130 80 145 Z' fill='%23f5cba7' stroke='%23333' stroke-width='2'/><circle cx='55' cy='12' r='3' fill='%23333'/></g></svg>`,
+  'hand-dark': `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M30 150 Q25 100 35 70 L40 30 Q42 18 52 18 Q62 18 60 32 L58 60 L65 25 Q67 12 78 14 Q88 16 84 30 L78 65 L86 32 Q90 20 100 24 Q108 28 102 42 L92 75 L98 55 Q104 45 112 50 Q118 55 110 70 L92 110 Q88 130 80 145 Z' fill='%23a87a51' stroke='%23222' stroke-width='2'/><circle cx='55' cy='12' r='3' fill='%23222'/></g></svg>`,
+  'pencil':    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><path d='M55 12 L65 12 L70 30 L70 130 L60 145 L50 130 L50 30 Z' fill='%23fbbf24' stroke='%23333' stroke-width='2'/><path d='M50 30 L70 30' stroke='%23333' stroke-width='2'/><path d='M55 12 L60 4 L65 12 Z' fill='%23ef4444' stroke='%23333' stroke-width='1.5'/><path d='M50 130 L70 130 L60 152 Z' fill='%23231f20' stroke='%23333' stroke-width='1.5'/></g></svg>`,
+  'marker':    `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><rect x='44' y='10' width='32' height='110' rx='6' fill='%233b82f6' stroke='%23333' stroke-width='2'/><rect x='40' y='6' width='40' height='14' rx='4' fill='%231e40af' stroke='%23333' stroke-width='2'/><path d='M44 120 L60 152 L76 120 Z' fill='%23000' stroke='%23333' stroke-width='1.5'/></g></svg>`,
+  'brush':     `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='160' viewBox='0 0 120 160'><g><rect x='48' y='10' width='24' height='80' fill='%238b5cf6' stroke='%23333' stroke-width='2'/><rect x='44' y='90' width='32' height='14' rx='3' fill='%23a78bfa' stroke='%23333' stroke-width='2'/><path d='M44 104 Q50 130 55 152 M52 104 Q56 132 58 152 M60 104 Q60 134 60 152 M68 104 Q66 132 64 152 M76 104 Q70 130 65 152' fill='none' stroke='%2374573a' stroke-width='2.5' stroke-linecap='round'/></g></svg>`
+};
+
+function setHandStyle(id) {
+  if (!HAND_STYLES[id]) id = 'hand-light';
+  projectHandStyle = id;
+  drawHand.src = 'data:image/svg+xml;utf8,' + HAND_STYLES[id];
+}
 
 // =========== UNDO / REDO ===========
 const HISTORY_LIMIT = 80;
@@ -37,13 +69,13 @@ let redoStack = [];
 let pendingSnap = null; // captured before drag/slider; committed once mutation actually happens
 
 function snapshotState() {
-  return JSON.stringify({ scenes, currentSceneId, selectedItemId, nextItemId, nextSceneId });
+  return JSON.stringify({ scenes, currentSceneId, selectedIds: [...selectedIds], nextItemId, nextSceneId });
 }
 function restoreState(snap) {
   const s = JSON.parse(snap);
   scenes = s.scenes;
   currentSceneId = s.currentSceneId;
-  selectedItemId = s.selectedItemId;
+  selectedIds = new Set(s.selectedIds || (s.selectedItemId ? [s.selectedItemId] : []));
   nextItemId = s.nextItemId;
   nextSceneId = s.nextSceneId;
   renderScenes(); renderCanvas(); syncProps(); syncItemControls();
@@ -55,6 +87,7 @@ function pushHistory() {
   redoStack = [];
   pendingSnap = null;
   updateUndoRedoButtons();
+  scheduleAutoSave();
 }
 // Capture state before an operation that may or may not mutate (drags, sliders).
 function beginAction() { pendingSnap = snapshotState(); }
@@ -66,6 +99,7 @@ function commitPending() {
   redoStack = [];
   pendingSnap = null;
   updateUndoRedoButtons();
+  scheduleAutoSave();
 }
 function undo() {
   if (!historyStack.length) return;
@@ -86,6 +120,95 @@ function updateUndoRedoButtons() {
 function resetHistory() {
   historyStack = []; redoStack = []; pendingSnap = null;
   updateUndoRedoButtons();
+}
+
+// =========== AUTO-SAVE ===========
+const AUTO_SAVE_DELAY = 1500;
+let autoSaveEnabled = localStorage.getItem('wb_autosave') !== 'off';
+let autoSaveTimer = null;
+let autoSaveInFlight = false;
+let autoSavePending = false;
+let suppressAutoSave = false; // set during loadProject to avoid re-saving the just-loaded data
+
+function scheduleAutoSave() {
+  if (suppressAutoSave) return;
+  if (!autoSaveEnabled) return;
+  if (isPlaying) return;
+  if (!window.WB_API || !WB_API.Auth.isLoggedIn()) return;
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => doSave(true), AUTO_SAVE_DELAY);
+}
+
+async function doSave(isAuto) {
+  if (autoSaveInFlight) {
+    autoSavePending = true;
+    return;
+  }
+  autoSaveInFlight = true;
+  setSaveStatus('saving');
+  try {
+    const name = document.getElementById('project-name').value.trim() || 'مشروع جديد';
+    const data = {
+      scenes,
+      nextItemId,
+      nextSceneId,
+      audioUrl: bgAudio.dataset.serverUrl || null,
+      handStyle: projectHandStyle
+    };
+    if (currentProjectId) {
+      await WB_API.Projects.update(currentProjectId, { name, data });
+    } else {
+      const r = await WB_API.Projects.create(name, data);
+      currentProjectId = r.id;
+    }
+    setSaveStatus('saved');
+  } catch (e) {
+    console.warn('Save failed:', e);
+    setSaveStatus('error', e.message || 'خطأ');
+    if (!isAuto) alert('فشل الحفظ: ' + (e.message || 'خطأ'));
+  } finally {
+    autoSaveInFlight = false;
+    if (autoSavePending) {
+      autoSavePending = false;
+      scheduleAutoSave();
+    }
+  }
+}
+
+let saveResetTimer = null;
+function setSaveStatus(state, msg) {
+  const btn = document.getElementById('btn-save');
+  if (!btn) return;
+  clearTimeout(saveResetTimer);
+  btn.classList.remove('saving', 'saved', 'error');
+  if (state === 'saving') {
+    btn.innerHTML = '<span class="save-spin">⟳</span> جارى الحفظ';
+    btn.classList.add('saving');
+    btn.title = 'جارى الحفظ التلقائى';
+  } else if (state === 'saved') {
+    btn.innerHTML = '✓ تم الحفظ';
+    btn.classList.add('saved');
+    btn.title = 'تم الحفظ تلقائياً';
+    saveResetTimer = setTimeout(() => {
+      btn.classList.remove('saved');
+      btn.innerHTML = '💾 حفظ';
+      btn.title = autoSaveEnabled ? 'حفظ يدوى (Ctrl+S) — الحفظ التلقائى مفعّل' : 'حفظ يدوى (Ctrl+S)';
+    }, 2200);
+  } else if (state === 'error') {
+    btn.innerHTML = '⚠ فشل الحفظ';
+    btn.classList.add('error');
+    btn.title = msg || 'فشل الحفظ — هتُعاد المحاولة مع التغيير القادم';
+  } else {
+    btn.innerHTML = '💾 حفظ';
+    btn.title = autoSaveEnabled ? 'حفظ يدوى (Ctrl+S) — الحفظ التلقائى مفعّل' : 'حفظ يدوى (Ctrl+S)';
+  }
+}
+
+function toggleAutoSave() {
+  autoSaveEnabled = !autoSaveEnabled;
+  localStorage.setItem('wb_autosave', autoSaveEnabled ? 'on' : 'off');
+  setSaveStatus('idle');
+  flashStatus(autoSaveEnabled ? '✓ الحفظ التلقائى مفعّل' : '⏸ الحفظ التلقائى متوقف');
 }
 
 // =========== VIEWPORT (pan + zoom) ===========
@@ -286,10 +409,11 @@ function addIconToScene(innerSvg) {
     id: nextItemId++, type: 'icon', svg: innerSvg,
     x: 200 + Math.random() * 400, y: 150 + Math.random() * 300,
     scale: 0.6, rotation: 0, flipX: false, flipY: false,
-    color: sc.color, stroke: sc.stroke
+    color: sc.color, stroke: sc.stroke,
+    drawStyle: sc.drawStyle || 'pen'
   };
   sc.items.push(newItem);
-  selectedItemId = newItem.id;
+  selectOnly(newItem.id);
   renderCanvas(); renderScenes(); syncItemControls();
 }
 
@@ -314,7 +438,7 @@ async function addImageFromFile(file) {
     rotation: 0, flipX: false, flipY: false
   };
   sc.items.push(newItem);
-  selectedItemId = newItem.id;
+  selectOnly(newItem.id);
   renderCanvas(); renderScenes(); syncItemControls();
 }
 
@@ -324,12 +448,67 @@ function addTextToScene(text, isRTL) {
   const newItem = {
     id: nextItemId++, type: 'text', text,
     x: 200, y: 360, fontSize: 80, fontFamily: 'Cairo',
+    bold: true, italic: false, underline: false,
+    align: 'start', lineHeight: 1.2,
     rotation: 0, flipX: false, flipY: false,
     color: sc.color, isRTL: isRTL ?? /[؀-ۿ]/.test(text)
   };
   sc.items.push(newItem);
-  selectedItemId = newItem.id;
+  selectOnly(newItem.id);
   renderCanvas(); renderScenes(); syncItemControls();
+}
+
+function addCounterToScene() {
+  pushHistory();
+  const sc = currentScene();
+  const newItem = {
+    id: nextItemId++, type: 'counter',
+    x: 400, y: 380,
+    from: 0, to: 100,
+    decimals: 0, prefix: '', suffix: '',
+    separator: true,
+    fontSize: 120, fontFamily: 'Cairo',
+    bold: true, italic: false,
+    rotation: 0, flipX: false, flipY: false,
+    color: sc.color, align: 'middle'
+  };
+  sc.items.push(newItem);
+  selectOnly(newItem.id);
+  renderCanvas(); renderScenes(); syncItemControls();
+}
+
+function addChartToScene() {
+  pushHistory();
+  const sc = currentScene();
+  const newItem = {
+    id: nextItemId++, type: 'chart',
+    chartType: 'bar',
+    data: [
+      { label: 'يناير',  value: 30 },
+      { label: 'فبراير', value: 60 },
+      { label: 'مارس',   value: 45 },
+      { label: 'أبريل',  value: 90 }
+    ],
+    x: 240, y: 140,
+    width: 800, height: 440,
+    rotation: 0, flipX: false, flipY: false,
+    color: sc.color, stroke: sc.stroke,
+    drawStyle: sc.drawStyle || 'pen'
+  };
+  sc.items.push(newItem);
+  selectOnly(newItem.id);
+  renderCanvas(); renderScenes(); syncItemControls();
+}
+
+function formatCounter(it, value) {
+  const decimals = Math.max(0, Math.min(6, it.decimals || 0));
+  let s = value.toFixed(decimals);
+  if (it.separator) {
+    const parts = s.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    s = parts.join('.');
+  }
+  return (it.prefix || '') + s + (it.suffix || '');
 }
 
 function duplicateItem(id) {
@@ -342,7 +521,7 @@ function duplicateItem(id) {
   clone.x = (clone.x || 0) + 30;
   clone.y = (clone.y || 0) + 30;
   sc.items.push(clone);
-  selectedItemId = clone.id;
+  selectOnly(clone.id);
   renderCanvas(); renderScenes(); syncItemControls();
 }
 
@@ -353,10 +532,159 @@ function renderCanvas() {
   renderBackground(sc);
   sc.items.forEach(it => {
     if (it.type === 'text') renderTextItem(it);
+    else if (it.type === 'counter') renderCounterItem(it);
+    else if (it.type === 'chart') renderChartItem(it);
     else if (it.type === 'image') renderImageItem(it);
     else renderIconItem(it);
   });
   drawSelectionHandles();
+  renderLayersPanel();
+}
+
+// =========== LAYERS PANEL ===========
+function layerIconFor(it) {
+  if (it.type === 'text') return '📝';
+  if (it.type === 'counter') return '🔢';
+  if (it.type === 'chart') {
+    if (it.chartType === 'pie') return '🥧';
+    if (it.chartType === 'line') return '📈';
+    return '📊';
+  }
+  if (it.type === 'image') return '🖼';
+  if (it.type === 'icon') return '🎨';
+  return '◆';
+}
+function layerLabelFor(it) {
+  if (it.type === 'text') return (it.text || '').split('\n')[0].slice(0, 30) || 'نص فارغ';
+  if (it.type === 'counter') return formatCounter(it, it.to);
+  if (it.type === 'chart') {
+    const t = it.chartType === 'pie' ? 'دائرى' : (it.chartType === 'line' ? 'خطى' : 'أعمدة');
+    return `رسم ${t} (${(it.data || []).length} قيم)`;
+  }
+  if (it.type === 'image') return 'صورة';
+  if (it.type === 'icon') return 'أيقونة';
+  return '—';
+}
+
+function renderLayersPanel() {
+  const list = document.getElementById('layers-list');
+  const cnt = document.getElementById('layers-count');
+  if (!list) return;
+  const sc = currentScene();
+  if (cnt) cnt.textContent = sc.items.length;
+  list.innerHTML = '';
+  if (!sc.items.length) {
+    list.innerHTML = '<div class="layers-empty">المشهد فاضى — ضيفى عناصر من المكتبة</div>';
+    return;
+  }
+
+  sc.items.forEach((it, idx) => {
+    const row = document.createElement('div');
+    row.className = 'layer-row' + (isSelected(it.id) ? ' active' : '');
+    row.dataset.id = it.id;
+    row.draggable = true;
+    row.title = `النوع: ${it.type} — انقر للاختيار، اسحب لإعادة الترتيب`;
+    row.innerHTML = `
+      <span class="layer-handle">⋮⋮</span>
+      <span class="layer-num">${idx + 1}</span>
+      <span class="layer-icon">${layerIconFor(it)}</span>
+      <span class="layer-label">${escapeHtml(layerLabelFor(it))}</span>
+      <button class="layer-del" title="حذف العنصر">✕</button>
+    `;
+
+    row.onclick = (e) => {
+      if (e.target.closest('.layer-del')) {
+        e.stopPropagation();
+        deleteItem(it.id);
+        return;
+      }
+      const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+      if (additive) toggleSelect(it.id);
+      else selectOnly(it.id);
+      syncItemControls();
+      drawSelectionHandles();
+      renderLayersPanel();
+    };
+
+    // Drag-and-drop reordering
+    row.ondragstart = (e) => {
+      e.dataTransfer.setData('text/plain', String(it.id));
+      e.dataTransfer.effectAllowed = 'move';
+      row.classList.add('dragging');
+    };
+    row.ondragend = () => {
+      row.classList.remove('dragging');
+      list.querySelectorAll('.layer-row').forEach(r =>
+        r.classList.remove('drag-over-top', 'drag-over-bottom'));
+    };
+    row.ondragover = (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = row.getBoundingClientRect();
+      const above = (e.clientY - rect.top) < rect.height / 2;
+      row.classList.toggle('drag-over-top', above);
+      row.classList.toggle('drag-over-bottom', !above);
+    };
+    row.ondragleave = () => {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    };
+    row.ondrop = (e) => {
+      e.preventDefault();
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+      const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
+      if (!draggedId || draggedId === it.id) return;
+      const rect = row.getBoundingClientRect();
+      const above = (e.clientY - rect.top) < rect.height / 2;
+      reorderItem(draggedId, it.id, above ? 'before' : 'after');
+    };
+
+    list.appendChild(row);
+  });
+}
+
+function reorderItem(fromId, toId, position) {
+  const sc = currentScene();
+  const fromIdx = sc.items.findIndex(it => it.id === fromId);
+  let toIdx = sc.items.findIndex(it => it.id === toId);
+  if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
+  pushHistory();
+  const [moved] = sc.items.splice(fromIdx, 1);
+  // Recompute toIdx after removal
+  toIdx = sc.items.findIndex(it => it.id === toId);
+  const insertAt = position === 'after' ? toIdx + 1 : toIdx;
+  sc.items.splice(insertAt, 0, moved);
+  renderCanvas();
+  renderScenes(); // updates the timeline item-count display
+}
+
+function buildTextElement(it, content) {
+  const t = document.createElementNS(SVG_NS, 'text');
+  t.setAttribute('x', it.x);
+  t.setAttribute('y', it.y);
+  t.setAttribute('font-size', it.fontSize);
+  t.setAttribute('font-family', `'${it.fontFamily || 'Cairo'}', sans-serif`);
+  t.setAttribute('fill', it.color);
+  t.setAttribute('font-weight', it.bold !== false ? '700' : '400');
+  if (it.italic) t.setAttribute('font-style', 'italic');
+  if (it.underline) t.setAttribute('text-decoration', 'underline');
+  if (it.align) t.setAttribute('text-anchor', it.align);
+  if (it.isRTL) t.setAttribute('direction', 'rtl');
+
+  const lines = String(content ?? '').split('\n');
+  const lh = it.lineHeight || 1.2;
+  if (lines.length <= 1) {
+    t.textContent = lines[0] || '';
+  } else {
+    lines.forEach((line, i) => {
+      const ts = document.createElementNS(SVG_NS, 'tspan');
+      ts.setAttribute('x', it.x);
+      if (i === 0) ts.setAttribute('dy', '0');
+      else ts.setAttribute('dy', (lh * it.fontSize) + '');
+      ts.textContent = line;
+      t.appendChild(ts);
+    });
+  }
+  return t;
 }
 
 function renderBackground(sc) {
@@ -445,31 +773,242 @@ function renderIconItem(it) {
 }
 
 function renderTextItem(it) {
-  const t = document.createElementNS(SVG_NS, 'text');
-  t.setAttribute('x', it.x);
-  t.setAttribute('y', it.y);
-  t.setAttribute('font-size', it.fontSize);
-  t.setAttribute('font-family', `'${it.fontFamily || 'Cairo'}', sans-serif`);
-  t.setAttribute('fill', it.color);
-  t.setAttribute('font-weight', '700');
-  if (it.isRTL) t.setAttribute('direction', 'rtl');
+  const t = buildTextElement(it, it.text);
   const tr = getTextTransform(it);
   if (tr) t.setAttribute('transform', tr);
-  t.textContent = it.text;
   t.dataset.id = it.id;
   enableDrag(t, it);
   board.appendChild(t);
 }
 
+function renderCounterItem(it) {
+  const t = buildTextElement(it, formatCounter(it, it.to));
+  const tr = getTextTransform(it);
+  if (tr) t.setAttribute('transform', tr);
+  t.dataset.id = it.id;
+  enableDrag(t, it);
+  board.appendChild(t);
+}
+
+// ===== Chart geometry =====
+function chartLayout(it) {
+  const padL = 60, padB = 50, padT = 20, padR = 20;
+  return {
+    plotX: padL, plotY: padT,
+    plotW: it.width - padL - padR,
+    plotH: it.height - padT - padB,
+    fullW: it.width, fullH: it.height
+  };
+}
+
+function buildChartGroup(it, options = {}) {
+  // Returns an SVG <g> with the static chart at item position (no animation).
+  // options.partial: 0..1 — render only the first portion of the data (for animation)
+  const partial = options.partial != null ? options.partial : 1;
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('transform', `translate(${it.x} ${it.y})`);
+  const L = chartLayout(it);
+  const stroke = (it.stroke || 2.5) * 4;
+  const opacity = it.drawStyle === 'pencil' ? 0.78 : (it.drawStyle === 'brush' ? 0.85 : 1);
+  const widthMul = it.drawStyle === 'pencil' ? 0.65 : (it.drawStyle === 'marker' ? 1.6 : (it.drawStyle === 'brush' ? 1.9 : 1));
+  const linecap = it.drawStyle === 'marker' ? 'square' : 'round';
+  const sw = stroke * widthMul;
+  const baseAttrs = `fill="none" stroke="${it.color}" stroke-width="${sw}" stroke-linecap="${linecap}" stroke-linejoin="round"${opacity !== 1 ? ` stroke-opacity="${opacity}"` : ''}`;
+  const labelFill = it.color;
+
+  if (it.chartType === 'pie') {
+    const total = it.data.reduce((a, d) => a + Math.max(0, d.value), 0) || 1;
+    const cx = L.fullW / 2;
+    const cy = L.fullH / 2;
+    const r = Math.min(L.fullW, L.fullH) * 0.4;
+    let angle = -Math.PI / 2; // start at top
+    let svgInner = '';
+    let cumulative = 0;
+    it.data.forEach((d, i) => {
+      const slicePart = total === 0 ? 0 : Math.max(0, d.value) / total;
+      const targetCumulative = cumulative + slicePart;
+      // Visible portion of THIS slice based on partial
+      const sliceVisible = Math.max(0, Math.min(slicePart, partial - cumulative));
+      if (sliceVisible > 0) {
+        const a1 = angle;
+        const a2 = angle + sliceVisible * Math.PI * 2;
+        const x1 = cx + Math.cos(a1) * r, y1 = cy + Math.sin(a1) * r;
+        const x2 = cx + Math.cos(a2) * r, y2 = cy + Math.sin(a2) * r;
+        const largeArc = (sliceVisible * Math.PI * 2) > Math.PI ? 1 : 0;
+        svgInner += `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z" ${baseAttrs} />`;
+        // Label at slice midpoint (only if slice is fully visible)
+        if (sliceVisible >= slicePart) {
+          const am = (a1 + a2) / 2;
+          const lx = cx + Math.cos(am) * (r + 24);
+          const ly = cy + Math.sin(am) * (r + 24) + 5;
+          svgInner += `<text x="${lx}" y="${ly}" font-family="Cairo, sans-serif" font-size="20" font-weight="700" fill="${labelFill}" text-anchor="middle">${escapeHtml(d.label)} (${d.value})</text>`;
+        }
+      }
+      angle += slicePart * Math.PI * 2;
+      cumulative = targetCumulative;
+    });
+    g.innerHTML = svgInner;
+  } else {
+    // Bar / Line: shared axis box
+    const max = Math.max(1, ...it.data.map(d => d.value));
+    const axesX = L.plotX, axesY = L.plotY, axesH = L.plotH, axesW = L.plotW;
+    let svgInner = `
+      <line x1="${axesX}" y1="${axesY}" x2="${axesX}" y2="${axesY + axesH}" ${baseAttrs} />
+      <line x1="${axesX}" y1="${axesY + axesH}" x2="${axesX + axesW}" y2="${axesY + axesH}" ${baseAttrs} />
+    `;
+    const n = it.data.length;
+    if (it.chartType === 'bar') {
+      const slot = axesW / n;
+      const barW = slot * 0.6;
+      const visibleCount = partial * n; // fractional
+      it.data.forEach((d, i) => {
+        const localProg = Math.max(0, Math.min(1, visibleCount - i)); // 0..1 for this bar
+        if (localProg <= 0) return;
+        const fullBarH = (Math.max(0, d.value) / max) * axesH;
+        const barH = fullBarH * localProg;
+        const x = axesX + slot * i + (slot - barW) / 2;
+        const y = axesY + axesH - barH;
+        svgInner += `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" ${baseAttrs} />`;
+        if (localProg >= 1) {
+          // Value above bar
+          svgInner += `<text x="${x + barW / 2}" y="${y - 8}" font-family="Cairo, sans-serif" font-size="18" font-weight="700" fill="${labelFill}" text-anchor="middle">${d.value}</text>`;
+          // Label below x-axis
+          svgInner += `<text x="${x + barW / 2}" y="${axesY + axesH + 26}" font-family="Cairo, sans-serif" font-size="16" fill="${labelFill}" text-anchor="middle">${escapeHtml(d.label)}</text>`;
+        }
+      });
+    } else if (it.chartType === 'line') {
+      const slot = n > 1 ? axesW / (n - 1) : axesW;
+      const points = it.data.map((d, i) => {
+        const x = axesX + slot * i;
+        const y = axesY + axesH - (Math.max(0, d.value) / max) * axesH;
+        return { x, y, v: d.value, lab: d.label };
+      });
+      // Draw progressive polyline based on partial
+      // Find current segment
+      const prog = partial * (n - 1);
+      const lastFullIdx = Math.floor(prog);
+      const frac = prog - lastFullIdx;
+      const visiblePts = points.slice(0, lastFullIdx + 1);
+      if (frac > 0 && lastFullIdx + 1 < points.length) {
+        const a = points[lastFullIdx], b = points[lastFullIdx + 1];
+        visiblePts.push({ x: a.x + (b.x - a.x) * frac, y: a.y + (b.y - a.y) * frac });
+      }
+      if (visiblePts.length >= 2) {
+        const pts = visiblePts.map(p => `${p.x},${p.y}`).join(' ');
+        svgInner += `<polyline points="${pts}" ${baseAttrs} />`;
+      }
+      // Dots + labels for fully-revealed points
+      points.forEach((p, i) => {
+        if (i <= lastFullIdx) {
+          svgInner += `<circle cx="${p.x}" cy="${p.y}" r="${sw * 1.5}" fill="${it.color}" />`;
+          svgInner += `<text x="${p.x}" y="${p.y - 14}" font-family="Cairo, sans-serif" font-size="16" font-weight="700" fill="${labelFill}" text-anchor="middle">${p.v}</text>`;
+          svgInner += `<text x="${p.x}" y="${axesY + axesH + 26}" font-family="Cairo, sans-serif" font-size="14" fill="${labelFill}" text-anchor="middle">${escapeHtml(p.lab)}</text>`;
+        }
+      });
+    }
+    g.innerHTML = svgInner;
+  }
+  return g;
+}
+
+function renderChartItem(it) {
+  const g = buildChartGroup(it, { partial: 1 });
+  g.dataset.id = it.id;
+  enableDrag(g, it);
+  board.appendChild(g);
+}
+
+function animateChart(it, sc, abort) {
+  return new Promise(resolve => {
+    const effect = effectFor(it, sc);
+    let g = buildChartGroup(it, { partial: 0 });
+    g.dataset.id = it.id;
+    board.appendChild(g);
+
+    if (effect !== 'draw') {
+      applyMotionEffect(g, effect, sc.duration) ||
+        applyMotionEffect(g, 'pop', sc.duration);
+      // After motion-effect completes, replace with full chart
+      setTimeout(() => {
+        const full = buildChartGroup(it, { partial: 1 });
+        full.dataset.id = it.id;
+        g.replaceWith(full);
+        resolve();
+      }, sc.duration * 1000);
+      return;
+    }
+
+    // 'draw' effect: progressively reveal the chart
+    drawHand.classList.add('visible');
+    const start = performance.now();
+    const dur = sc.duration * 1000;
+    function frame(now) {
+      if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
+      const t = Math.min(1, (now - start) / dur);
+      const next = buildChartGroup(it, { partial: t });
+      next.dataset.id = it.id;
+      g.replaceWith(next);
+      g = next;
+      // Move hand near the rightmost drawn extent
+      try {
+        const bb = g.getBBox();
+        positionHandAtSvgPoint(it.x + bb.x + bb.width, it.y + bb.y + bb.height * 0.4);
+      } catch {}
+      if (t < 1) requestAnimationFrame(frame);
+      else { resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+function getItemBoundsInBoardCoords(id) {
+  const el = board.querySelector(`[data-id="${id}"]`);
+  if (!el) return null;
+  const rect = el.getBoundingClientRect();
+  const boardRect = board.getBoundingClientRect();
+  if (!boardRect.width || !boardRect.height || !rect.width) return null;
+  const sx = viewW / boardRect.width;
+  const sy = viewH / boardRect.height;
+  return {
+    x1: viewX + (rect.left - boardRect.left) * sx,
+    y1: viewY + (rect.top - boardRect.top) * sy,
+    x2: viewX + (rect.right - boardRect.left) * sx,
+    y2: viewY + (rect.bottom - boardRect.top) * sy,
+  };
+}
+
 function drawSelectionHandles() {
   const old = board.querySelector('#handles-group');
   if (old) old.remove();
-  if (!selectedItemId || isPlaying) return;
+  if (!selectedIds.size || isPlaying) return;
+
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('id', 'handles-group');
+
+  // Multi-select: draw a thin outline around each selected item, no resize/rotate handles
+  if (selectedIds.size > 1) {
+    selectedIds.forEach(id => {
+      const b = getItemBoundsInBoardCoords(id);
+      if (!b) return;
+      const pad = 14;
+      const r = document.createElementNS(SVG_NS, 'rect');
+      r.setAttribute('x', b.x1 - pad);
+      r.setAttribute('y', b.y1 - pad);
+      r.setAttribute('width', b.x2 - b.x1 + pad * 2);
+      r.setAttribute('height', b.y2 - b.y1 + pad * 2);
+      r.setAttribute('class', 'selected-outline multi');
+      g.appendChild(r);
+    });
+    board.appendChild(g);
+    return;
+  }
+
+  // Single select: original handles (resize + rotate)
   const it = getSelectedItem();
   if (!it) return;
-  const el = board.querySelector(`[data-id="${selectedItemId}"]`);
+  const sid = firstSelectedId();
+  const el = board.querySelector(`[data-id="${sid}"]`);
   if (!el) return;
-  // Use rendered bounding rect (in screen pixels) — includes strokes, handles all transforms.
   const rect = el.getBoundingClientRect();
   const boardRect = board.getBoundingClientRect();
   if (!boardRect.width || !boardRect.height || !rect.width) return;
@@ -490,9 +1029,6 @@ function drawSelectionHandles() {
   ];
   const tmX = cx, tmY = by1;
   const rotPos = { x: cx, y: by1 - 60 };
-
-  const g = document.createElementNS(SVG_NS, 'g');
-  g.setAttribute('id', 'handles-group');
 
   // Outline (axis-aligned, always wraps the visible content)
   const outline = document.createElementNS(SVG_NS, 'rect');
@@ -584,7 +1120,7 @@ function enableResizeHandle(handle, it, ctx) {
         it.height = Math.max(20, startH * ratio);
       } else if (it.type === 'icon') {
         it.scale = Math.max(0.05, Math.min(8, startScale * ratio));
-      } else if (it.type === 'text') {
+      } else if (it.type === 'text' || it.type === 'counter') {
         it.fontSize = Math.max(12, Math.min(600, startFS * ratio));
       }
       updateItemRender(it);
@@ -654,28 +1190,82 @@ function enableRotateHandle(handle, it, ctx) {
 }
 
 function applyStrokeStyle(g, it) {
+  const style = it.drawStyle || 'pen';
+  let widthMul = 1, opacity = 1, linecap = 'round', linejoin = 'round';
+  if (style === 'pencil')      { widthMul = 0.65; opacity = 0.78; }
+  else if (style === 'marker') { widthMul = 1.6; linecap = 'square'; linejoin = 'miter'; }
+  else if (style === 'brush')  { widthMul = 1.9; opacity = 0.85; }
+
+  const w = (it.stroke || 2.5) * 8 * widthMul;
   g.querySelectorAll('path, circle, rect, line, polyline, polygon').forEach(p => {
     p.setAttribute('fill', 'none');
     p.setAttribute('stroke', it.color);
-    p.setAttribute('stroke-width', it.stroke * 8);
-    p.setAttribute('stroke-linecap', 'round');
-    p.setAttribute('stroke-linejoin', 'round');
+    p.setAttribute('stroke-width', w);
+    p.setAttribute('stroke-linecap', linecap);
+    p.setAttribute('stroke-linejoin', linejoin);
+    if (opacity !== 1) p.setAttribute('stroke-opacity', opacity);
   });
 }
 
 // =========== DRAG + SELECT ===========
 function enableDrag(el, it) {
-  let dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  let dragging = false, moved = false, sx = 0, sy = 0;
+  let groupStart = null;  // Map<id, {x,y}> for multi-drag
+  let altDupActive = false; // Alt+drag = duplicate-then-drag
   el.style.cursor = 'move';
   el.addEventListener('pointerdown', (e) => {
     if (isPlaying) return;
     if (spaceHeld || e.button === 1) return;
     e.stopPropagation();
+
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (additive) {
+      toggleSelect(it.id);
+      syncItemControls();
+      drawSelectionHandles();
+      switchPane('item');
+      return; // don't initiate drag on shift-click
+    }
+
+    beginAction(); // capture pre-mutation state for undo
+    altDupActive = e.altKey;
+
+    if (altDupActive) {
+      // Ensure clicked item is in selection, then duplicate the whole selection.
+      // Clones overlap originals; we MUST NOT call renderCanvas() here because that would
+      // remove the original `el` from the DOM and release its pointer capture.
+      if (!isSelected(it.id)) selectOnly(it.id);
+      const sc = currentScene();
+      const originals = getSelectedItems();
+      const newIds = [];
+      originals.forEach(o => {
+        const c = JSON.parse(JSON.stringify(o));
+        c.id = nextItemId++;
+        sc.items.push(c);
+        newIds.push(c.id);
+        // Append the clone's DOM element directly (without re-rendering the originals)
+        if (c.type === 'text') renderTextItem(c);
+        else if (c.type === 'counter') renderCounterItem(c);
+        else if (c.type === 'image') renderImageItem(c);
+        else renderIconItem(c);
+      });
+      selectedIds = new Set(newIds);
+      renderScenes();        // updates timeline item count
+      renderLayersPanel();   // updates layers list
+    } else {
+      if (!isSelected(it.id)) selectOnly(it.id);
+    }
+
+    syncItemControls();
+    drawSelectionHandles();
+    switchPane('item');
+
     dragging = true; moved = false;
     el.setPointerCapture(e.pointerId);
-    const pt = svgPoint(e); sx = pt.x; sy = pt.y; ox = it.x; oy = it.y;
-    selectItem(it.id);
-    beginAction();
+    const pt = svgPoint(e); sx = pt.x; sy = pt.y;
+    groupStart = new Map();
+    // groupStart tracks the *clones* (selectedIds is now the clone IDs after altDup)
+    getSelectedItems().forEach(s => groupStart.set(s.id, { x: s.x, y: s.y }));
   });
   el.addEventListener('pointermove', (e) => {
     if (!dragging) return;
@@ -685,11 +1275,21 @@ function enableDrag(el, it) {
       if (!moved) commitPending();
       moved = true;
     }
-    it.x = ox + dx; it.y = oy + dy;
-    updateItemRender(it, el);
+    // Move every selected item by the same delta
+    const sc = currentScene();
+    sc.items.forEach(s => {
+      const sp = groupStart && groupStart.get(s.id);
+      if (!sp) return;
+      s.x = sp.x + dx; s.y = sp.y + dy;
+      updateItemRender(s);
+    });
     drawSelectionHandles();
   });
-  el.addEventListener('pointerup', () => { dragging = false; pendingSnap = null; });
+  el.addEventListener('pointerup', () => {
+    // For Alt+click without movement, the duplicate IS the change → commit it
+    if (altDupActive && !moved && pendingSnap) commitPending();
+    dragging = false; groupStart = null; altDupActive = false; pendingSnap = null;
+  });
   el.addEventListener('dblclick', (e) => {
     e.stopPropagation();
     if (confirm('حذف العنصر؟')) deleteItem(it.id);
@@ -701,21 +1301,55 @@ function enableDrag(el, it) {
     const delta = e.deltaY < 0 ? 1.08 : 0.92;
     it.scale = Math.max(0.05, Math.min(3, it.scale * delta));
     el.setAttribute('transform', getIconTransform(it));
-    drawSelectionOutline();
+    drawSelectionHandles();
     syncItemControls();
   }, { passive: false });
 }
 
-// Click empty canvas → deselect
+// Click empty canvas (or background) → deselect
 board.addEventListener('pointerdown', (e) => {
-  if (e.target === board) { selectedItemId = null; syncItemControls(); drawSelectionHandles(); }
+  const t = e.target;
+  if (t === board || (t.getAttribute && t.getAttribute('data-bg') === '1')) {
+    clearSelection();
+    syncItemControls();
+    drawSelectionHandles();
+  }
 });
 
 function selectItem(id) {
-  selectedItemId = id;
+  selectOnly(id);
   syncItemControls();
   drawSelectionHandles();
+  switchPane('item');
 }
+
+// =========== SIDEBAR TABS ===========
+function switchPane(name) {
+  document.querySelectorAll('.side-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.pane === name);
+  });
+  document.querySelectorAll('.pane').forEach(p => {
+    p.classList.toggle('active', p.dataset.pane === name);
+  });
+}
+document.querySelectorAll('.side-tab').forEach(t => {
+  t.addEventListener('click', () => switchPane(t.dataset.pane));
+});
+
+// Close modals on backdrop click + ESC (except those marked data-no-backdrop-close)
+document.querySelectorAll('.modal').forEach(m => {
+  if (m.hasAttribute('data-no-backdrop-close')) return;
+  m.addEventListener('click', (e) => {
+    if (e.target === m) m.classList.remove('show');
+  });
+});
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  document.querySelectorAll('.modal.show').forEach(m => {
+    if (m.hasAttribute('data-no-backdrop-close')) return;
+    m.classList.remove('show');
+  });
+});
 
 // Lightweight in-place update (avoid full re-render during drag)
 function updateItemRender(it, el) {
@@ -723,9 +1357,10 @@ function updateItemRender(it, el) {
   if (!el) return;
   if (it.type === 'icon') {
     el.setAttribute('transform', getIconTransform(it));
-  } else if (it.type === 'text') {
+  } else if (it.type === 'text' || it.type === 'counter') {
     el.setAttribute('x', it.x); el.setAttribute('y', it.y);
     el.setAttribute('font-size', it.fontSize);
+    el.querySelectorAll('tspan').forEach(ts => ts.setAttribute('x', it.x));
     const tr = getTextTransform(it);
     if (tr) el.setAttribute('transform', tr); else el.removeAttribute('transform');
   } else if (it.type === 'image') {
@@ -740,8 +1375,85 @@ function deleteItem(id) {
   if (!sc.items.some(x => x.id === id)) return;
   pushHistory();
   sc.items = sc.items.filter(x => x.id !== id);
-  if (selectedItemId === id) selectedItemId = null;
+  selectedIds.delete(id);
   renderCanvas(); renderScenes(); syncItemControls();
+}
+
+function deleteSelectedItems() {
+  if (!selectedIds.size) return;
+  pushHistory();
+  const sc = currentScene();
+  sc.items = sc.items.filter(it => !selectedIds.has(it.id));
+  clearSelection();
+  renderCanvas(); renderScenes(); syncItemControls();
+}
+
+function duplicateSelectedItems() {
+  if (!selectedIds.size) return;
+  pushHistory();
+  const sc = currentScene();
+  const newIds = [];
+  [...selectedIds].forEach(id => {
+    const it = sc.items.find(x => x.id === id);
+    if (!it) return;
+    const clone = JSON.parse(JSON.stringify(it));
+    clone.id = nextItemId++;
+    clone.x = (clone.x || 0) + 30;
+    clone.y = (clone.y || 0) + 30;
+    sc.items.push(clone);
+    newIds.push(clone.id);
+  });
+  selectedIds = new Set(newIds);
+  renderCanvas(); renderScenes(); syncItemControls();
+}
+
+// =========== CLIPBOARD (Ctrl+C / Ctrl+X / Ctrl+V) ===========
+let internalClipboard = []; // array of item snapshots (without ids)
+
+function copySelection() {
+  const sel = getSelectedItems();
+  if (!sel.length) return;
+  internalClipboard = sel.map(it => {
+    const c = JSON.parse(JSON.stringify(it));
+    delete c.id;
+    return c;
+  });
+  flashStatus(`📋 تم نسخ ${sel.length} عنصر`);
+}
+
+function cutSelection() {
+  const sel = getSelectedItems();
+  if (!sel.length) return;
+  internalClipboard = sel.map(it => {
+    const c = JSON.parse(JSON.stringify(it));
+    delete c.id;
+    return c;
+  });
+  pushHistory();
+  const sc = currentScene();
+  const ids = new Set(sel.map(s => s.id));
+  sc.items = sc.items.filter(it => !ids.has(it.id));
+  clearSelection();
+  renderCanvas(); renderScenes(); syncItemControls();
+  flashStatus(`✂ تم قص ${sel.length} عنصر`);
+}
+
+function pasteFromClipboard() {
+  if (!internalClipboard.length) return;
+  pushHistory();
+  const sc = currentScene();
+  const newIds = [];
+  internalClipboard.forEach(item => {
+    const clone = JSON.parse(JSON.stringify(item));
+    clone.id = nextItemId++;
+    clone.x = (clone.x || 0) + 30;
+    clone.y = (clone.y || 0) + 30;
+    sc.items.push(clone);
+    newIds.push(clone.id);
+  });
+  selectedIds = new Set(newIds);
+  renderCanvas(); renderScenes(); syncItemControls();
+  flashStatus(`📋 تم لصق ${newIds.length} عنصر`);
 }
 function svgPoint(evt) {
   const pt = board.createSVGPoint();
@@ -751,36 +1463,60 @@ function svgPoint(evt) {
 
 // =========== SCENES UI ===========
 function renderScenes() {
-  scenesList.innerHTML = '';
+  if (scenesList) scenesList.innerHTML = '';
   track.innerHTML = '';
-  scenes.forEach(s => {
-    const li = document.createElement('li');
-    li.className = s.id === currentSceneId ? 'active' : '';
-    li.innerHTML = `<span>${s.name} • ${s.duration}s • ${s.items.length} عنصر</span><span class="del" title="حذف">✕</span>`;
-    li.onclick = (e) => {
-      if (e.target.classList.contains('del')) {
+
+  scenes.forEach((s, idx) => {
+    const block = document.createElement('div');
+    block.className = 'track-block' + (s.id === currentSceneId ? ' active' : '');
+    block.title = 'انقر للتبديل • انقر مرتين لإعادة التسمية';
+    block.innerHTML = `
+      <button class="tb-del" title="حذف المشهد">✕</button>
+      <div class="tb-name">${escapeHtml(s.name)}</div>
+      <div class="tb-meta">
+        <span><span class="dot">●</span> ${s.duration}s</span>
+        <span>${s.items.length} عنصر</span>
+      </div>
+    `;
+    block.onclick = (e) => {
+      if (e.target.closest('.tb-del')) {
         if (scenes.length === 1) return alert('لا يمكن حذف آخر مشهد');
+        if (!confirm(`حذف "${s.name}"؟`)) return;
         pushHistory();
         scenes = scenes.filter(x => x.id !== s.id);
         if (currentSceneId === s.id) currentSceneId = scenes[0].id;
         renderScenes(); renderCanvas(); syncProps();
       } else {
         currentSceneId = s.id;
-        renderScenes(); renderCanvas(); syncProps();
+        clearSelection();
+        renderScenes(); renderCanvas(); syncProps(); syncItemControls();
       }
     };
-    scenesList.appendChild(li);
-
-    const block = document.createElement('div');
-    block.className = 'track-block' + (s.id === currentSceneId ? ' active' : '');
-    block.style.minWidth = (60 + s.duration * 30) + 'px';
-    block.textContent = `${s.name} (${s.duration}s)`;
-    block.onclick = () => { currentSceneId = s.id; renderScenes(); renderCanvas(); syncProps(); };
+    block.ondblclick = (e) => {
+      e.stopPropagation();
+      const newName = prompt('اسم المشهد:', s.name);
+      if (newName == null) return;
+      const trimmed = newName.trim();
+      if (!trimmed || trimmed === s.name) return;
+      pushHistory();
+      s.name = trimmed;
+      renderScenes();
+    };
     track.appendChild(block);
   });
+
+  // Trailing "+ مشهد" tile
+  const addBtn = document.createElement('button');
+  addBtn.className = 'track-add';
+  addBtn.textContent = '+ مشهد';
+  addBtn.title = 'إضافة مشهد جديد';
+  addBtn.onclick = () => document.getElementById('btn-add-scene').click();
+  track.appendChild(addBtn);
+
   const total = scenes.reduce((a, s) => a + s.duration, 0);
   timecode.textContent = `00:00 / ${formatTime(total)}`;
 }
+
 function formatTime(s) {
   const m = Math.floor(s / 60), ss = Math.floor(s % 60);
   return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
@@ -807,6 +1543,22 @@ function syncProps() {
   bgColor.value = bg.color || '#ffffff';
   bgLineColor.value = bg.lineColor || '#cfd8e6';
   syncBgRows(bg.type);
+  // Draw style + camera (deferred to bottom because elements may not exist yet on first call)
+  const drawSel = document.getElementById('prop-draw-style');
+  if (drawSel) drawSel.value = s.drawStyle || 'pen';
+  const handSel = document.getElementById('prop-hand-style');
+  if (handSel) handSel.value = projectHandStyle;
+  const camChk = document.getElementById('cam-enabled');
+  const camCtl = document.getElementById('cam-controls');
+  const cam = s.camera;
+  if (camChk) camChk.checked = !!(cam && cam.enabled);
+  if (camCtl) camCtl.style.display = (cam && cam.enabled) ? '' : 'none';
+  if (typeof syncCameraStatus === 'function') syncCameraStatus();
+  // Exit transition
+  const exitSel = document.getElementById('prop-exit-transition');
+  const exitDur = document.getElementById('prop-exit-duration');
+  if (exitSel) exitSel.value = s.exitTransition || 'none';
+  if (exitDur) exitDur.value = s.exitDuration || 1.5;
 }
 
 function syncBgRows(type) {
@@ -816,6 +1568,8 @@ function syncBgRows(type) {
   bgColorRow.style.display = showColor ? '' : 'none';
   bgLineColorRow.style.display = showLine ? '' : 'none';
   bgImageRow.style.display = showImg ? '' : 'none';
+  const wrap = document.getElementById('bg-colors-row');
+  if (wrap) wrap.style.display = (showColor || showLine) ? '' : 'none';
 }
 
 function ensureBg() {
@@ -864,6 +1618,85 @@ document.getElementById('btn-bg-clear').onclick = () => {
   syncProps();
   renderCanvas();
 };
+
+// =========== CAMERA / DRAW STYLE / HAND STYLE ===========
+const camEnabled = document.getElementById('cam-enabled');
+const camControls = document.getElementById('cam-controls');
+const camStatus = document.getElementById('cam-status');
+const propDrawStyle = document.getElementById('prop-draw-style');
+const propHandStyle = document.getElementById('prop-hand-style');
+
+function snapshotViewport() {
+  return { x: viewX, y: viewY, w: viewW, h: viewH };
+}
+function applyViewport(v) {
+  if (!v) return;
+  viewX = v.x; viewY = v.y; viewW = v.w; viewH = v.h;
+  updateViewBox();
+}
+function ensureCamera() {
+  const s = currentScene();
+  if (!s.camera) s.camera = { enabled: false, start: null, end: null };
+  return s.camera;
+}
+function syncCameraStatus() {
+  const s = currentScene();
+  const cam = s.camera;
+  const hasStart = cam && cam.start;
+  const hasEnd = cam && cam.end;
+  camStatus.innerHTML = `
+    <div class="badge ${hasStart ? 'set' : ''}">${hasStart ? '✓ بداية' : 'بداية —'}</div>
+    <div class="badge ${hasEnd ? 'set' : ''}">${hasEnd ? '✓ نهاية' : 'نهاية —'}</div>
+  `;
+}
+
+camEnabled.onchange = () => {
+  pushHistory();
+  const cam = ensureCamera();
+  cam.enabled = camEnabled.checked;
+  camControls.style.display = cam.enabled ? '' : 'none';
+  syncCameraStatus();
+};
+document.getElementById('cam-set-start').onclick = () => {
+  pushHistory();
+  ensureCamera().start = snapshotViewport();
+  syncCameraStatus();
+  flashStatus('✓ تم حفظ نقطة البداية');
+};
+document.getElementById('cam-set-end').onclick = () => {
+  pushHistory();
+  ensureCamera().end = snapshotViewport();
+  syncCameraStatus();
+  flashStatus('✓ تم حفظ نقطة النهاية');
+};
+document.getElementById('cam-view-start').onclick = () => {
+  const cam = currentScene().camera;
+  if (cam && cam.start) applyViewport(cam.start);
+};
+document.getElementById('cam-view-end').onclick = () => {
+  const cam = currentScene().camera;
+  if (cam && cam.end) applyViewport(cam.end);
+};
+document.getElementById('cam-reset').onclick = () => {
+  pushHistory();
+  const cam = ensureCamera();
+  cam.start = null; cam.end = null;
+  resetView();
+  syncCameraStatus();
+};
+
+propDrawStyle.onchange = () => {
+  pushHistory();
+  const s = currentScene();
+  s.drawStyle = propDrawStyle.value;
+  // Apply to all existing items in this scene so it's visible immediately
+  s.items.forEach(it => { if (it.type === 'icon') it.drawStyle = s.drawStyle; });
+  renderCanvas();
+};
+
+propHandStyle.onchange = () => {
+  setHandStyle(propHandStyle.value);
+};
 propDuration.addEventListener('pointerdown', beginAction);
 propDuration.addEventListener('focus', beginAction);
 propDuration.oninput = () => { commitPending(); currentScene().duration = parseFloat(propDuration.value) || 1; renderScenes(); };
@@ -891,19 +1724,87 @@ const lblRot = document.getElementById('lbl-rot');
 const ctrlFont = document.getElementById('ctrl-font');
 const ctrlFontRow = document.getElementById('ctrl-font-row');
 
+const textFormatBlock = document.getElementById('text-format-block');
+const ctrlBold = document.getElementById('ctrl-bold');
+const ctrlItalic = document.getElementById('ctrl-italic');
+const ctrlUnderline = document.getElementById('ctrl-underline');
+const ctrlAlign = document.getElementById('ctrl-align');
+const ctrlLineHeight = document.getElementById('ctrl-line-height');
+const lblLineHeight = document.getElementById('lbl-line-height');
+const ctrlEditText = document.getElementById('ctrl-edit-text');
+
+const counterBlock = document.getElementById('counter-block');
+const ctrlCounterFrom = document.getElementById('ctrl-counter-from');
+const ctrlCounterTo = document.getElementById('ctrl-counter-to');
+const ctrlCounterDecimals = document.getElementById('ctrl-counter-decimals');
+const ctrlCounterPrefix = document.getElementById('ctrl-counter-prefix');
+const ctrlCounterSuffix = document.getElementById('ctrl-counter-suffix');
+const ctrlCounterSep = document.getElementById('ctrl-counter-sep');
+
+// =========== TEXT MODAL ===========
+const textModal = document.getElementById('text-modal');
+const textModalInput = document.getElementById('text-modal-input');
+const textModalTitle = document.getElementById('text-modal-title');
+
+function openTextModal({ initial = '', title = 'نص جديد' } = {}) {
+  return new Promise(resolve => {
+    textModalInput.value = initial;
+    textModalTitle.textContent = title;
+    textModal.classList.add('show');
+    setTimeout(() => textModalInput.focus(), 50);
+    const cleanup = () => {
+      textModal.classList.remove('show');
+      document.getElementById('text-modal-ok').onclick = null;
+      document.getElementById('text-modal-cancel').onclick = null;
+      document.getElementById('text-modal-close').onclick = null;
+    };
+    document.getElementById('text-modal-ok').onclick = () => {
+      const v = textModalInput.value;
+      cleanup();
+      resolve(v.trim() ? v : null);
+    };
+    document.getElementById('text-modal-cancel').onclick = () => { cleanup(); resolve(null); };
+    document.getElementById('text-modal-close').onclick = () => { cleanup(); resolve(null); };
+  });
+}
+
 function getSelectedItem() {
-  if (!selectedItemId) return null;
-  return currentScene().items.find(it => it.id === selectedItemId) || null;
+  const id = firstSelectedId();
+  if (!id) return null;
+  return currentScene().items.find(it => it.id === id) || null;
+}
+
+function syncMultiSelectHeader(selArr) {
+  const hdr = document.getElementById('multi-header');
+  const cnt = document.getElementById('multi-count');
+  const isMulti = selArr.length > 1;
+  if (hdr) hdr.style.display = isMulti ? '' : 'none';
+  if (cnt) cnt.textContent = selArr.length;
+  // In multi-select, hide type-specific blocks (font, format, counter) unless ALL same type
+  const types = new Set(selArr.map(s => s.type));
+  const allSameType = types.size === 1;
+  const transformSection = document.getElementById('transform-section');
+  // Hide scale/rotation sliders when multi (per-item operations don't make sense as a single value)
+  if (transformSection) {
+    const ctrlScaleRow = ctrlScale.closest('.prop-row');
+    const ctrlRotRow = ctrlRot.closest('.prop-row');
+    if (ctrlScaleRow) ctrlScaleRow.style.display = isMulti ? 'none' : '';
+    if (ctrlRotRow) ctrlRotRow.style.display = isMulti ? 'none' : '';
+  }
 }
 
 function syncItemControls() {
-  const it = getSelectedItem();
+  const noSelEl = document.getElementById('no-selection');
+  const sel = getSelectedItems();
+  const it = sel[0] || null;
   if (!it) {
     itemControls.style.display = 'none';
-    if (selectedItemId) selectedItemId = null;
+    if (noSelEl) noSelEl.style.display = '';
     return;
   }
   itemControls.style.display = 'block';
+  if (noSelEl) noSelEl.style.display = 'none';
+  syncMultiSelectHeader(sel);
   if (it.type === 'icon') {
     ctrlScale.min = 10; ctrlScale.max = 300;
     ctrlScale.value = Math.round(it.scale * 100);
@@ -913,6 +1814,29 @@ function syncItemControls() {
     ctrlScale.value = Math.round(it.fontSize);
     lblScale.textContent = it.fontSize + 'px';
     ctrlFont.value = it.fontFamily || 'Cairo';
+    ctrlBold.classList.toggle('active', it.bold !== false);
+    ctrlItalic.classList.toggle('active', !!it.italic);
+    ctrlUnderline.classList.toggle('active', !!it.underline);
+    ctrlAlign.value = it.align || 'start';
+    ctrlLineHeight.value = it.lineHeight || 1.2;
+    lblLineHeight.textContent = (it.lineHeight || 1.2).toFixed(1);
+  } else if (it.type === 'counter') {
+    ctrlScale.min = 12; ctrlScale.max = 400;
+    ctrlScale.value = Math.round(it.fontSize);
+    lblScale.textContent = it.fontSize + 'px';
+    ctrlFont.value = it.fontFamily || 'Cairo';
+    ctrlCounterFrom.value = it.from ?? 0;
+    ctrlCounterTo.value = it.to ?? 100;
+    ctrlCounterDecimals.value = it.decimals ?? 0;
+    ctrlCounterPrefix.value = it.prefix || '';
+    ctrlCounterSuffix.value = it.suffix || '';
+    ctrlCounterSep.classList.toggle('active', it.separator !== false);
+  } else if (it.type === 'chart') {
+    ctrlScale.min = 200; ctrlScale.max = 1280;
+    ctrlScale.value = Math.round(it.width);
+    lblScale.textContent = Math.round(it.width) + 'px';
+    document.getElementById('ctrl-chart-type').value = it.chartType || 'bar';
+    renderChartDataRows(it);
   } else if (it.type === 'image') {
     ctrlScale.min = 30; ctrlScale.max = 1500;
     ctrlScale.value = Math.round(it.width);
@@ -920,11 +1844,27 @@ function syncItemControls() {
   }
   ctrlRot.value = it.rotation || 0;
   lblRot.textContent = (it.rotation || 0) + '°';
-  ctrlFontRow.style.display = it.type === 'text' ? '' : 'none';
+
+  // Effect dropdown: in multi-select, show common value or empty
+  const effects = new Set(sel.map(s => s.effect || ''));
+  ctrlEffect.value = effects.size === 1 ? [...effects][0] : '';
+
+  // Type-specific blocks: only show when ALL selected are the same type
+  const types = new Set(sel.map(s => s.type));
+  const allText = types.size === 1 && [...types][0] === 'text';
+  const allCounter = types.size === 1 && [...types][0] === 'counter';
+  const allTextish = types.size === 1 && (allText || allCounter);
+  ctrlFontRow.style.display = allTextish ? '' : 'none';
+  textFormatBlock.style.display = allText ? '' : 'none';
+  counterBlock.style.display = allCounter ? '' : 'none';
+  const allChart = types.size === 1 && [...types][0] === 'chart';
+  const chartBlock = document.getElementById('chart-block');
+  if (chartBlock) chartBlock.style.display = allChart ? '' : 'none';
 }
 
 ctrlFont.onchange = () => {
-  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  const it = getSelectedItem(); if (!it) return;
+  if (it.type !== 'text' && it.type !== 'counter') return;
   pushHistory();
   it.fontFamily = ctrlFont.value;
   renderCanvas();
@@ -936,8 +1876,8 @@ ctrlScale.oninput = () => {
   commitPending();
   const v = parseInt(ctrlScale.value);
   if (it.type === 'icon') { it.scale = v / 100; lblScale.textContent = v + '%'; }
-  else if (it.type === 'text') { it.fontSize = v; lblScale.textContent = v + 'px'; }
-  else if (it.type === 'image') {
+  else if (it.type === 'text' || it.type === 'counter') { it.fontSize = v; lblScale.textContent = v + 'px'; }
+  else if (it.type === 'image' || it.type === 'chart') {
     const ratio = v / it.width;
     it.width = v; it.height = it.height * ratio;
     lblScale.textContent = v + 'px';
@@ -963,31 +1903,184 @@ document.getElementById('ctrl-flip-y').onclick = () => {
   it.flipY = !it.flipY; renderCanvas();
 };
 document.getElementById('ctrl-front').onclick = () => {
-  const it = getSelectedItem(); if (!it) return;
+  if (!selectedIds.size) return;
+  pushHistory();
   const sc = currentScene();
-  const idx = sc.items.indexOf(it);
-  if (idx < sc.items.length - 1) { pushHistory(); sc.items.splice(idx, 1); sc.items.push(it); renderCanvas(); }
+  const moving = sc.items.filter(it => selectedIds.has(it.id));
+  sc.items = sc.items.filter(it => !selectedIds.has(it.id)).concat(moving);
+  renderCanvas();
 };
 document.getElementById('ctrl-back').onclick = () => {
-  const it = getSelectedItem(); if (!it) return;
+  if (!selectedIds.size) return;
+  pushHistory();
   const sc = currentScene();
-  const idx = sc.items.indexOf(it);
-  if (idx > 0) { pushHistory(); sc.items.splice(idx, 1); sc.items.unshift(it); renderCanvas(); }
+  const moving = sc.items.filter(it => selectedIds.has(it.id));
+  sc.items = moving.concat(sc.items.filter(it => !selectedIds.has(it.id)));
+  renderCanvas();
 };
 document.getElementById('ctrl-reset').onclick = () => {
   const it = getSelectedItem(); if (!it) return;
   pushHistory();
   it.rotation = 0; it.flipX = false; it.flipY = false;
-  if (it.type === 'icon') it.scale = 0.6; else it.fontSize = 80;
+  if (it.type === 'icon') it.scale = 0.6;
+  else if (it.type === 'counter') it.fontSize = 120;
+  else it.fontSize = 80;
   renderCanvas(); syncItemControls();
 };
 document.getElementById('ctrl-duplicate').onclick = () => {
-  const it = getSelectedItem(); if (!it) return;
-  duplicateItem(it.id);
+  if (!selectedIds.size) return;
+  duplicateSelectedItems();
+};
+
+// ===== Per-item effect dropdown =====
+const ctrlEffect = document.getElementById('ctrl-effect');
+ctrlEffect.onchange = () => {
+  if (!selectedIds.size) return;
+  pushHistory();
+  const v = ctrlEffect.value;
+  getSelectedItems().forEach(it => {
+    if (v) it.effect = v;
+    else delete it.effect;
+  });
+};
+
+// ===== Text format wiring =====
+ctrlBold.onclick = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  pushHistory();
+  it.bold = it.bold === false ? true : !it.bold;
+  if (it.bold === undefined) it.bold = true;
+  renderCanvas(); syncItemControls();
+};
+ctrlItalic.onclick = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  pushHistory();
+  it.italic = !it.italic;
+  renderCanvas(); syncItemControls();
+};
+ctrlUnderline.onclick = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  pushHistory();
+  it.underline = !it.underline;
+  renderCanvas(); syncItemControls();
+};
+ctrlAlign.onchange = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  pushHistory();
+  it.align = ctrlAlign.value;
+  renderCanvas();
+};
+ctrlLineHeight.addEventListener('pointerdown', beginAction);
+ctrlLineHeight.oninput = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  commitPending();
+  it.lineHeight = parseFloat(ctrlLineHeight.value);
+  lblLineHeight.textContent = it.lineHeight.toFixed(1);
+  renderCanvas();
+};
+ctrlEditText.onclick = async () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'text') return;
+  const v = await openTextModal({ initial: it.text, title: 'تعديل النص' });
+  if (v == null) return;
+  pushHistory();
+  it.text = v;
+  it.isRTL = /[؀-ۿ]/.test(v);
+  renderCanvas(); drawSelectionHandles();
+};
+
+// ===== Counter wiring =====
+function bindCounterInput(el, key, parse) {
+  el.addEventListener('focus', beginAction);
+  el.addEventListener('change', () => {
+    const it = getSelectedItem(); if (!it || it.type !== 'counter') return;
+    commitPending();
+    it[key] = parse(el.value);
+    renderCanvas();
+  });
+}
+bindCounterInput(ctrlCounterFrom, 'from', v => parseFloat(v) || 0);
+bindCounterInput(ctrlCounterTo, 'to', v => parseFloat(v) || 0);
+bindCounterInput(ctrlCounterDecimals, 'decimals', v => Math.max(0, Math.min(6, parseInt(v) || 0)));
+bindCounterInput(ctrlCounterPrefix, 'prefix', v => v);
+bindCounterInput(ctrlCounterSuffix, 'suffix', v => v);
+ctrlCounterSep.onclick = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'counter') return;
+  pushHistory();
+  it.separator = it.separator === false ? true : !it.separator;
+  if (it.separator === undefined) it.separator = true;
+  renderCanvas(); syncItemControls();
+};
+
+// ===== Chart wiring =====
+const ctrlChartType = document.getElementById('ctrl-chart-type');
+const ctrlChartAdd = document.getElementById('ctrl-chart-add');
+const chartDataRowsEl = document.getElementById('chart-data-rows');
+
+ctrlChartType.onchange = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'chart') return;
+  pushHistory();
+  it.chartType = ctrlChartType.value;
+  renderCanvas();
+};
+
+ctrlChartAdd.onclick = () => {
+  const it = getSelectedItem(); if (!it || it.type !== 'chart') return;
+  pushHistory();
+  it.data.push({ label: 'بند', value: 50 });
+  renderCanvas();
+  renderChartDataRows(it);
+};
+
+function renderChartDataRows(it) {
+  if (!chartDataRowsEl) return;
+  chartDataRowsEl.innerHTML = '';
+  (it.data || []).forEach((d, idx) => {
+    const row = document.createElement('div');
+    row.className = 'chart-data-row';
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(d.label || '')}" placeholder="التسمية" data-field="label" />
+      <input type="number" value="${d.value || 0}" placeholder="القيمة" data-field="value" step="1" />
+      <button class="chart-row-del" title="حذف الصف">✕</button>
+    `;
+    const inputs = row.querySelectorAll('input');
+    inputs.forEach(inp => {
+      inp.addEventListener('focus', beginAction);
+      inp.addEventListener('change', () => {
+        commitPending();
+        const sel = getSelectedItem(); if (!sel || sel.type !== 'chart') return;
+        if (inp.dataset.field === 'value') sel.data[idx].value = parseFloat(inp.value) || 0;
+        else sel.data[idx].label = inp.value;
+        renderCanvas();
+      });
+    });
+    row.querySelector('.chart-row-del').onclick = () => {
+      const sel = getSelectedItem(); if (!sel || sel.type !== 'chart') return;
+      if (sel.data.length <= 1) return; // keep at least one
+      pushHistory();
+      sel.data.splice(idx, 1);
+      renderCanvas();
+      renderChartDataRows(sel);
+    };
+    chartDataRowsEl.appendChild(row);
+  });
+}
+
+// ===== Scene exit transition wiring =====
+const propExitTransition = document.getElementById('prop-exit-transition');
+const propExitDuration = document.getElementById('prop-exit-duration');
+propExitTransition.onchange = () => {
+  pushHistory();
+  currentScene().exitTransition = propExitTransition.value;
+};
+propExitDuration.addEventListener('focus', beginAction);
+propExitDuration.onchange = () => {
+  commitPending();
+  currentScene().exitDuration = parseFloat(propExitDuration.value) || 1.5;
 };
 document.getElementById('ctrl-delete').onclick = () => {
-  const it = getSelectedItem(); if (!it) return;
-  deleteItem(it.id);
+  if (!selectedIds.size) return;
+  if (selectedIds.size > 1 && !confirm(`حذف ${selectedIds.size} عناصر؟`)) return;
+  deleteSelectedItems();
 };
 
 // Keyboard shortcuts
@@ -996,35 +2089,50 @@ window.addEventListener('keydown', (e) => {
   const tag = (e.target.tagName || '').toLowerCase();
   const inField = tag === 'input' || tag === 'textarea' || tag === 'select';
 
-  // Global shortcuts (work even without selection)
+  // Use e.code (physical key position) so shortcuts work in Arabic keyboard layout too
+  // Global shortcuts (Ctrl+S works in fields too)
+  if (e.ctrlKey || e.metaKey) {
+    if (e.code === 'KeyS') {
+      e.preventDefault();
+      if (e.altKey) toggleAutoSave();
+      else doSave(false);
+      return;
+    }
+  }
   if ((e.ctrlKey || e.metaKey) && !inField) {
-    if (e.key === 'z' || e.key === 'Z') {
+    if (e.code === 'KeyZ') {
       e.preventDefault();
       if (e.shiftKey) redo(); else undo();
       return;
     }
-    if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); redo(); return; }
-    if (e.key === 'd' || e.key === 'D') {
-      const it = getSelectedItem(); if (it) { e.preventDefault(); duplicateItem(it.id); }
+    if (e.code === 'KeyY') { e.preventDefault(); redo(); return; }
+    if (e.code === 'KeyA') {
+      e.preventDefault();
+      const sc = currentScene();
+      sc.items.forEach(it => selectedIds.add(it.id));
+      syncItemControls(); drawSelectionHandles(); renderLayersPanel();
       return;
     }
+    if (e.code === 'KeyC') { e.preventDefault(); copySelection(); return; }
+    if (e.code === 'KeyX') { e.preventDefault(); cutSelection(); return; }
+    if (e.code === 'KeyV') { e.preventDefault(); pasteFromClipboard(); return; }
   }
 
   const it = getSelectedItem(); if (!it) return;
   if (inField) return;
-  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteItem(it.id); }
-  else if (e.key === 'r' || e.key === 'R') { pushHistory(); it.rotation = ((it.rotation || 0) + 15) % 360; renderCanvas(); syncItemControls(); }
-  else if (e.key === '+' || e.key === '=') {
+  if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelectedItems(); }
+  else if (e.code === 'KeyR') { pushHistory(); it.rotation = ((it.rotation || 0) + 15) % 360; renderCanvas(); syncItemControls(); }
+  else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd' || e.code === 'Equal') {
     pushHistory();
     if (it.type === 'icon') it.scale = Math.min(3, it.scale * 1.1);
-    else if (it.type === 'text') it.fontSize = Math.min(400, it.fontSize + 8);
+    else if (it.type === 'text' || it.type === 'counter') it.fontSize = Math.min(400, it.fontSize + 8);
     else if (it.type === 'image') { it.width *= 1.1; it.height *= 1.1; }
     renderCanvas(); syncItemControls();
   }
-  else if (e.key === '-') {
+  else if (e.key === '-' || e.code === 'NumpadSubtract' || e.code === 'Minus') {
     pushHistory();
     if (it.type === 'icon') it.scale = Math.max(0.05, it.scale * 0.9);
-    else if (it.type === 'text') it.fontSize = Math.max(12, it.fontSize - 8);
+    else if (it.type === 'text' || it.type === 'counter') it.fontSize = Math.max(12, it.fontSize - 8);
     else if (it.type === 'image') { it.width *= 0.9; it.height *= 0.9; }
     renderCanvas(); syncItemControls();
   }
@@ -1034,7 +2142,20 @@ window.addEventListener('keydown', (e) => {
 document.getElementById('btn-add-scene').onclick = () => {
   pushHistory();
   const id = nextSceneId++;
-  scenes.push({ id, name: `مشهد ${scenes.length + 1}`, items: [], duration: 3, effect: 'draw', color: '#222', stroke: 2.5, background: null });
+  // Inherit draw style + camera off from current scene
+  const cur = currentScene();
+  scenes.push({
+    id,
+    name: `مشهد ${scenes.length + 1}`,
+    items: [],
+    duration: 3,
+    effect: 'draw',
+    color: '#222',
+    stroke: 2.5,
+    background: null,
+    drawStyle: (cur && cur.drawStyle) || 'pen',
+    camera: null
+  });
   currentSceneId = id;
   renderScenes(); renderCanvas(); syncProps();
 };
@@ -1043,9 +2164,17 @@ document.getElementById('btn-add-scene').onclick = () => {
 document.getElementById('btn-undo').onclick = undo;
 document.getElementById('btn-redo').onclick = redo;
 
-document.getElementById('btn-add-text').onclick = () => {
-  const text = prompt('اكتب النص:', 'مرحبا بالعالم');
-  if (text && text.trim()) addTextToScene(text.trim());
+document.getElementById('btn-add-text').onclick = async () => {
+  const text = await openTextModal({ initial: 'مرحبا بالعالم', title: 'نص جديد' });
+  if (text != null && text.trim()) addTextToScene(text);
+};
+
+document.getElementById('btn-add-counter').onclick = () => {
+  addCounterToScene();
+};
+
+document.getElementById('btn-add-chart').onclick = () => {
+  addChartToScene();
 };
 
 document.getElementById('upload-svg').onchange = async (e) => {
@@ -1081,19 +2210,15 @@ document.getElementById('audio-upload').onchange = async (e) => {
 // Save / Load via backend API
 let currentProjectId = null;
 
-document.getElementById('btn-save').onclick = async () => {
-  const name = document.getElementById('project-name').value.trim() || 'مشروع بدون اسم';
-  const data = { scenes, nextItemId, nextSceneId, audioUrl: bgAudio.dataset.serverUrl || null };
-  try {
-    if (currentProjectId) {
-      await WB_API.Projects.update(currentProjectId, { name, data });
-      flashStatus('✓ تم الحفظ');
-    } else {
-      const { id } = await WB_API.Projects.create(name, data);
-      currentProjectId = id;
-      flashStatus('✓ تم إنشاء المشروع');
-    }
-  } catch (e) { alert('فشل الحفظ: ' + e.message); }
+document.getElementById('btn-save').onclick = (e) => {
+  // Right-click / Alt+click toggles auto-save
+  if (e.altKey) { toggleAutoSave(); return; }
+  doSave(false);
+};
+// Right-click on save button → toggle auto-save
+document.getElementById('btn-save').oncontextmenu = (e) => {
+  e.preventDefault();
+  toggleAutoSave();
 };
 
 document.getElementById('btn-load').onclick = async () => {
@@ -1116,15 +2241,37 @@ function showProjectsModal(list) {
       const date = new Date(p.updated_at * 1000).toLocaleString('ar-EG');
       card.innerHTML = `
         <div class="info">
-          <h4>${escapeHtml(p.name)}</h4>
+          <h4 class="project-card-name">${escapeHtml(p.name)}</h4>
           <p>آخر تعديل: ${date}</p>
         </div>
         <div class="actions-mini">
-          <button class="btn-ghost btn-sm">فتح</button>
-          <button class="del-btn">🗑</button>
+          <button class="btn-ghost btn-sm open-btn">فتح</button>
+          <button class="btn-ghost btn-sm rename-btn" title="إعادة تسمية">✏️</button>
+          <button class="del-btn" title="حذف">🗑</button>
         </div>`;
-      const [openBtn, delBtn] = card.querySelectorAll('button');
+      const openBtn = card.querySelector('.open-btn');
+      const renameBtn = card.querySelector('.rename-btn');
+      const delBtn = card.querySelector('.del-btn');
       openBtn.onclick = (e) => { e.stopPropagation(); loadProject(p.id); };
+      renameBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const newName = prompt('الاسم الجديد:', p.name);
+        if (newName == null) return;
+        const trimmed = newName.trim();
+        if (!trimmed || trimmed === p.name) return;
+        try {
+          await WB_API.Projects.update(p.id, { name: trimmed });
+          // If renaming the currently open project, sync the topbar input too
+          if (currentProjectId === p.id) {
+            document.getElementById('project-name').value = trimmed;
+          }
+          flashStatus('✓ تم تغيير الاسم');
+          const fresh = await WB_API.Projects.list();
+          showProjectsModal(fresh);
+        } catch (err) {
+          alert('فشل تغيير الاسم: ' + err.message);
+        }
+      };
       delBtn.onclick = async (e) => {
         e.stopPropagation();
         if (!confirm(`حذف "${p.name}"؟`)) return;
@@ -1145,12 +2292,15 @@ async function loadProject(id) {
   try {
     const p = await WB_API.Projects.get(id);
     if (!p.data || !p.data.scenes) return alert('بيانات المشروع تالفة');
+    suppressAutoSave = true;
+    clearTimeout(autoSaveTimer);
     scenes = p.data.scenes;
     nextItemId = p.data.nextItemId || (Math.max(0, ...scenes.flatMap(s => s.items.map(i => i.id))) + 1);
     nextSceneId = p.data.nextSceneId || (Math.max(0, ...scenes.map(s => s.id)) + 1);
     currentSceneId = scenes[0].id;
     currentProjectId = p.id;
-    selectedItemId = null;
+    clearSelection();
+    setHandStyle(p.data.handStyle || 'hand-light');
     document.getElementById('project-name').value = p.name;
     if (p.data.audioUrl) {
       bgAudio.src = p.data.audioUrl;
@@ -1164,6 +2314,8 @@ async function loadProject(id) {
     renderScenes(); renderCanvas(); syncProps(); syncItemControls();
     document.getElementById('projects-modal').classList.remove('show');
     flashStatus('✓ تم فتح المشروع');
+    setSaveStatus('idle');
+    setTimeout(() => { suppressAutoSave = false; }, 50);
   } catch (e) { alert('فشل الفتح: ' + e.message); }
 }
 
@@ -1192,6 +2344,7 @@ function stopPlayback() {
   btnPlay.disabled = false;
   drawHand.classList.remove('visible');
   if (bgAudio.src) { bgAudio.pause(); bgAudio.currentTime = 0; }
+  resetView();
   renderCanvas();
 }
 
@@ -1215,17 +2368,114 @@ async function runPlayback(onSceneStart) {
   if (bgAudio.src) bgAudio.pause();
   isPlaying = false;
   btnPlay.disabled = false;
+  resetView();
+  renderCanvas();
 }
 
 async function playScene(sc, abort) {
   board.innerHTML = '';
   renderBackground(sc);
+
+  // Camera animation runs in parallel over the entire scene's total duration
+  const totalMs = Math.max(1, sc.items.length) * sc.duration * 1000;
+  let cameraPromise = Promise.resolve();
+  if (sc.camera && sc.camera.enabled && sc.camera.start && sc.camera.end) {
+    cameraPromise = animateCamera(sc.camera, totalMs, abort);
+  }
+
   for (const it of sc.items) {
-    if (abort.stop) return;
+    if (abort.stop) break;
     if (it.type === 'text') await animateText(it, sc, abort);
+    else if (it.type === 'counter') await animateCounter(it, sc, abort);
+    else if (it.type === 'chart') await animateChart(it, sc, abort);
     else if (it.type === 'image') await animateImage(it, sc, abort);
     else await animateIcon(it, sc, abort);
   }
+  await cameraPromise;
+  // Exit transition (erase / fade) after scene completes
+  if (sc.exitTransition && sc.exitTransition !== 'none') {
+    await runExitTransition(sc, abort);
+  }
+}
+
+async function runExitTransition(sc, abort) {
+  const dur = (sc.exitDuration || 1.5) * 1000;
+  if (sc.exitTransition === 'fade') {
+    return new Promise(resolve => {
+      const a = board.animate([{ opacity: 1 }, { opacity: 0 }], { duration: dur, fill: 'forwards' });
+      a.onfinish = () => { board.style.opacity = ''; resolve(); };
+      const interval = setInterval(() => { if (abort.stop) { try { a.cancel(); } catch {} clearInterval(interval); resolve(); } }, 50);
+      setTimeout(() => clearInterval(interval), dur + 50);
+    });
+  }
+  if (sc.exitTransition === 'erase') {
+    return new Promise(resolve => {
+      // Build a clipPath that shrinks across the scene from right→left (RTL natural)
+      let defs = board.querySelector('defs');
+      if (!defs) { defs = document.createElementNS(SVG_NS, 'defs'); board.appendChild(defs); }
+      const clipId = 'exit-clip-' + Date.now();
+      const cp = document.createElementNS(SVG_NS, 'clipPath');
+      cp.setAttribute('id', clipId);
+      const cpRect = document.createElementNS(SVG_NS, 'rect');
+      cpRect.setAttribute('x', '0');
+      cpRect.setAttribute('y', '0');
+      cpRect.setAttribute('width', '1280');
+      cpRect.setAttribute('height', '720');
+      cp.appendChild(cpRect);
+      defs.appendChild(cp);
+
+      // Apply clip to all top-level scene content (except defs and handles-group)
+      const clipped = [];
+      [...board.children].forEach(c => {
+        if (c.tagName === 'defs' || c.id === 'handles-group') return;
+        c.setAttribute('clip-path', `url(#${clipId})`);
+        clipped.push(c);
+      });
+
+      drawHand.classList.add('visible');
+      const start = performance.now();
+      function frame(now) {
+        if (abort.stop) {
+          drawHand.classList.remove('visible');
+          clipped.forEach(c => c.removeAttribute('clip-path'));
+          return resolve();
+        }
+        const t = Math.min(1, (now - start) / dur);
+        const newW = 1280 * (1 - t);
+        cpRect.setAttribute('width', newW);
+        positionHandAtSvgPoint(newW, 360);
+        if (t < 1) requestAnimationFrame(frame);
+        else {
+          drawHand.classList.remove('visible');
+          resolve();
+        }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+}
+
+function animateCamera(cam, totalMs, abort) {
+  return new Promise(resolve => {
+    const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    const start = performance.now();
+    // Snap to start position immediately
+    viewX = cam.start.x; viewY = cam.start.y; viewW = cam.start.w; viewH = cam.start.h;
+    updateViewBox();
+    function frame(now) {
+      if (abort.stop) return resolve();
+      const t = Math.min(1, (now - start) / totalMs);
+      const e = easeInOut(t);
+      viewX = cam.start.x + (cam.end.x - cam.start.x) * e;
+      viewY = cam.start.y + (cam.end.y - cam.start.y) * e;
+      viewW = cam.start.w + (cam.end.w - cam.start.w) * e;
+      viewH = cam.start.h + (cam.end.h - cam.start.h) * e;
+      updateViewBox();
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
+    }
+    requestAnimationFrame(frame);
+  });
 }
 
 // ===== Hand positioning helper =====
@@ -1337,18 +2587,13 @@ function animateIcon(it, sc, abort) {
     g.setAttribute('transform', getIconTransform(it));
     const inner = document.createElementNS(SVG_NS, 'g');
     inner.innerHTML = it.svg;
+    applyStrokeStyle(inner, it);
     const shapes = [...inner.querySelectorAll('path, circle, rect, line, polyline, polygon')];
-    shapes.forEach(p => {
-      p.setAttribute('fill', 'none');
-      p.setAttribute('stroke', it.color);
-      p.setAttribute('stroke-width', it.stroke * 8);
-      p.setAttribute('stroke-linecap', 'round');
-      p.setAttribute('stroke-linejoin', 'round');
-    });
     g.appendChild(inner);
     board.appendChild(g);
 
-    if (applyMotionEffect(inner, sc.effect, sc.duration)) {
+    const effect = effectFor(it, sc);
+    if (effect !== 'draw' && applyMotionEffect(inner, effect, sc.duration)) {
       setTimeout(resolve, sc.duration * 1000);
       return;
     }
@@ -1397,27 +2642,22 @@ function animateIcon(it, sc, abort) {
   });
 }
 
+// Effective effect for an item: per-item override > scene default
+function effectFor(it, sc) { return it.effect || sc.effect; }
+
 // ===== Text animation =====
 function animateText(it, sc, abort) {
   return new Promise(resolve => {
+    const effect = effectFor(it, sc);
     const wrap = document.createElementNS(SVG_NS, 'g');
     const tr = getTextTransform(it); if (tr) wrap.setAttribute('transform', tr);
-    const t = document.createElementNS(SVG_NS, 'text');
-    t.setAttribute('x', it.x);
-    t.setAttribute('y', it.y);
-    t.setAttribute('font-size', it.fontSize);
-    t.setAttribute('font-family', `'${it.fontFamily || 'Cairo'}', sans-serif`);
-    t.setAttribute('fill', it.color);
-    t.setAttribute('font-weight', '700');
-    if (it.isRTL) t.setAttribute('direction', 'rtl');
-    t.textContent = it.text;
+    const t = buildTextElement(it, it.text);
     wrap.appendChild(t);
     board.appendChild(wrap);
     const bbox = t.getBBox();
 
-    if (sc.effect !== 'draw') {
-      if (!applyMotionEffect(wrap, sc.effect, sc.duration)) {
-        // fallback: scale pop
+    if (effect !== 'draw') {
+      if (!applyMotionEffect(wrap, effect, sc.duration)) {
         applyMotionEffect(wrap, 'pop', sc.duration);
       }
       setTimeout(resolve, sc.duration * 1000);
@@ -1463,6 +2703,39 @@ function animateText(it, sc, abort) {
   });
 }
 
+// ===== Counter animation — count from `from` to `to` =====
+function animateCounter(it, sc, abort) {
+  return new Promise(resolve => {
+    const effect = effectFor(it, sc);
+    const wrap = document.createElementNS(SVG_NS, 'g');
+    const tr = getTextTransform(it); if (tr) wrap.setAttribute('transform', tr);
+    const t = buildTextElement(it, formatCounter(it, it.from));
+    wrap.appendChild(t);
+    board.appendChild(wrap);
+
+    if (effect !== 'draw') {
+      applyMotionEffect(wrap, effect, sc.duration) ||
+        applyMotionEffect(wrap, 'pop', sc.duration);
+    }
+
+    const start = performance.now();
+    const dur = sc.duration * 1000;
+    const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+    let currentNode = t;
+    function frame(now) {
+      if (abort.stop) return resolve();
+      const p = Math.min(1, (now - start) / dur);
+      const v = it.from + (it.to - it.from) * easeOut(p);
+      const fresh = buildTextElement(it, formatCounter(it, v));
+      wrap.replaceChild(fresh, currentNode);
+      currentNode = fresh;
+      if (p < 1) requestAnimationFrame(frame);
+      else resolve();
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
 // ===== Image animation (clip-path wipe) =====
 function animateImage(it, sc, abort) {
   return new Promise(resolve => {
@@ -1476,7 +2749,8 @@ function animateImage(it, sc, abort) {
     wrap.appendChild(img);
     board.appendChild(wrap);
 
-    if (sc.effect !== 'draw' && applyMotionEffect(wrap, sc.effect, sc.duration)) {
+    const effect = effectFor(it, sc);
+    if (effect !== 'draw' && applyMotionEffect(wrap, effect, sc.duration)) {
       setTimeout(resolve, sc.duration * 1000);
       return;
     }
@@ -1791,11 +3065,19 @@ function onLoginSuccess(user) {
 }
 
 function initStudio() {
+  setHandStyle(projectHandStyle);
   renderCategories();
   renderLibrary();
   renderScenes();
   renderCanvas();
   syncProps();
+  setSaveStatus('idle');
+  // Auto-save on project name edits
+  const pn = document.getElementById('project-name');
+  if (pn && !pn.dataset.bound) {
+    pn.dataset.bound = '1';
+    pn.addEventListener('input', () => scheduleAutoSave());
+  }
 }
 
 (async function bootstrap() {
