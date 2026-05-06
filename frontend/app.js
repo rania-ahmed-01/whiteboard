@@ -274,6 +274,7 @@ async function doSave(isAuto) {
     } else {
       const r = await WB_API.Projects.create(name, data);
       currentProjectId = r.id;
+      rememberCurrentProject();
     }
     setSaveStatus('saved');
   } catch (e) {
@@ -2493,6 +2494,30 @@ document.getElementById('audio-upload').onchange = async (e) => {
 
 // Save / Load via backend API
 let currentProjectId = null;
+const LAST_PROJECT_KEY = 'wb_last_project_id';
+
+function getProjectIdFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const id = parseInt(params.get('project'));
+  return id > 0 ? id : null;
+}
+
+function updateUrlWithProject() {
+  const params = new URLSearchParams(location.search);
+  if (currentProjectId) params.set('project', currentProjectId);
+  else params.delete('project');
+  const qs = params.toString();
+  const newUrl = location.pathname + (qs ? '?' + qs : '') + location.hash;
+  if (newUrl !== location.pathname + location.search + location.hash) {
+    history.replaceState(null, '', newUrl);
+  }
+}
+
+function rememberCurrentProject() {
+  if (currentProjectId) localStorage.setItem(LAST_PROJECT_KEY, String(currentProjectId));
+  else localStorage.removeItem(LAST_PROJECT_KEY);
+  updateUrlWithProject();
+}
 
 document.getElementById('btn-save').onclick = (e) => {
   // Right-click / Alt+click toggles auto-save
@@ -2560,6 +2585,10 @@ function showProjectsModal(list) {
         e.stopPropagation();
         if (!confirm(`حذف "${p.name}"؟`)) return;
         await WB_API.Projects.remove(p.id);
+        if (currentProjectId === p.id) {
+          currentProjectId = null;
+          rememberCurrentProject();
+        }
         const fresh = await WB_API.Projects.list();
         showProjectsModal(fresh);
       };
@@ -2583,6 +2612,7 @@ async function loadProject(id) {
     nextSceneId = p.data.nextSceneId || (Math.max(0, ...scenes.map(s => s.id)) + 1);
     currentSceneId = scenes[0].id;
     currentProjectId = p.id;
+    rememberCurrentProject();
     clearSelection();
     setHandStyle(p.data.handStyle || 'hand-light');
     document.getElementById('project-name').value = p.name;
@@ -2933,73 +2963,9 @@ function animateIcon(it, sc, abort) {
 // Effective effect for an item: per-item override > scene default
 function effectFor(it, sc) { return it.effect || sc.effect; }
 
-// =========== FONT LOADING (for hand-drawn text via opentype.js) ===========
-const FONT_URLS = {
-  'Cairo':       'https://cdn.jsdelivr.net/gh/Gue3bara/Cairo@master/fonts/ttf/Cairo-Regular.ttf',
-  'Tajawal':     'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/tajawal/Tajawal-Regular.ttf',
-  'Amiri':       'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Regular.ttf',
-  'Almarai':     'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/almarai/Almarai-Regular.ttf',
-  'Lalezar':     'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/lalezar/Lalezar-Regular.ttf',
-  'Reem Kufi':   'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/reemkufi/ReemKufi-Regular.ttf',
-  'Aref Ruqaa':  'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/arefruqaa/ArefRuqaa-Regular.ttf',
-  'El Messiri':  'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/elmessiri/ElMessiri-Regular.ttf'
-};
-const fontCache = new Map();   // family → opentype.Font  (or null = failed)
-const fontPromises = new Map(); // family → Promise<font|null>
-
-function loadFontForPath(family) {
-  if (fontCache.has(family)) return Promise.resolve(fontCache.get(family));
-  if (fontPromises.has(family)) return fontPromises.get(family);
-  const url = FONT_URLS[family];
-  if (!url || !window.opentype) { fontCache.set(family, null); return Promise.resolve(null); }
-  const p = (async () => {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const buf = await res.arrayBuffer();
-      const font = opentype.parse(buf);
-      fontCache.set(family, font);
-      return font;
-    } catch (e) {
-      console.warn('[font] load failed for', family, e);
-      fontCache.set(family, null);
-      return null;
-    }
-  })();
-  fontPromises.set(family, p);
-  return p;
-}
-
-// Build SVG path data for a multi-line text using opentype.js
-function buildTextPathData(it, font) {
-  const lines = String(it.text || '').split('\n');
-  const lh = it.lineHeight || 1.2;
-  let combined = '';
-  let baseY = it.y;
-  for (let i = 0; i < lines.length; i++) {
-    if (i > 0) baseY += it.fontSize * lh;
-    const line = lines[i];
-    if (!line) continue;
-    // text-anchor adjustment: middle/end shift x
-    let xPos = it.x;
-    if (it.align === 'middle' || it.align === 'end') {
-      try {
-        const w = font.getAdvanceWidth(line, it.fontSize);
-        if (it.align === 'middle') xPos -= w / 2;
-        else xPos -= w;
-      } catch {}
-    }
-    try {
-      const path = font.getPath(line, xPos, baseY, it.fontSize);
-      combined += path.toPathData(2) + ' ';
-    } catch (e) { /* skip line on failure */ }
-  }
-  return combined.trim();
-}
-
 // ===== Text animation =====
-async function animateText(it, sc, abort) {
-  return new Promise(async (resolve) => {
+function animateText(it, sc, abort) {
+  return new Promise(resolve => {
     const effect = effectFor(it, sc);
     const wrap = document.createElementNS(SVG_NS, 'g');
     const tr = getTextTransform(it); if (tr) wrap.setAttribute('transform', tr);
@@ -3016,58 +2982,7 @@ async function animateText(it, sc, abort) {
       return;
     }
 
-    // Try the proper "trace each letter shape" hand-drawing using opentype.js paths
-    if (window.opentype) {
-      const font = await loadFontForPath(it.fontFamily || 'Cairo');
-      if (font && !abort.stop) {
-        const pathD = buildTextPathData(it, font);
-        if (pathD) {
-          // Replace rendered text with a stroked path; animate stroke-dashoffset.
-          // Hand follows the stroke head via getPointAtLength.
-          const pathEl = document.createElementNS(SVG_NS, 'path');
-          pathEl.setAttribute('d', pathD);
-          pathEl.setAttribute('fill', 'none');
-          pathEl.setAttribute('stroke', it.color);
-          pathEl.setAttribute('stroke-width', Math.max(1.5, it.fontSize * 0.045));
-          pathEl.setAttribute('stroke-linecap', 'round');
-          pathEl.setAttribute('stroke-linejoin', 'round');
-          wrap.replaceChildren(pathEl);
-          let totalLen = 0;
-          try { totalLen = pathEl.getTotalLength(); } catch {}
-          if (totalLen > 0) {
-            pathEl.style.strokeDasharray = totalLen;
-            pathEl.style.strokeDashoffset = totalLen;
-            drawHand.classList.add('visible');
-            const start = performance.now();
-            const dur = sc.duration * 1000;
-            function frame(now) {
-              if (abort.stop) return resolve();
-              const t01 = Math.min(1, (now - start) / dur);
-              const target = totalLen * t01;
-              pathEl.style.strokeDashoffset = totalLen - target;
-              try {
-                const pt = pathEl.getPointAtLength(target);
-                positionHandAtSvgPoint(pt.x, pt.y);
-              } catch {}
-              if (t01 < 1) requestAnimationFrame(frame);
-              else {
-                // Fill the text once finished — looks crisper than a thin stroke
-                pathEl.setAttribute('fill', it.color);
-                pathEl.style.strokeDasharray = '';
-                pathEl.style.strokeDashoffset = '';
-                pathEl.setAttribute('stroke', 'none');
-                resolve();
-              }
-            }
-            requestAnimationFrame(frame);
-            return;
-          }
-        }
-      }
-    }
-    // === Fallback: clip-path wipe (if opentype/font unavailable) ===
-
-    // Wipe reveal via clipPath — character-by-character when possible
+    // Wipe reveal via clipPath
     let defs = board.querySelector('defs');
     if (!defs) { defs = document.createElementNS(SVG_NS, 'defs'); board.appendChild(defs); }
     const clipId = 'clip-' + it.id + '-' + Date.now();
@@ -3082,94 +2997,27 @@ async function animateText(it, sc, abort) {
     defs.appendChild(clip);
     t.setAttribute('clip-path', `url(#${clipId})`);
 
-    // Try to extract per-character flow positions (more reliable than extents for RTL/ligatures).
-    // We collect: startX (where the first char begins) + endX after each char (where pen finishes that char).
-    const isSingleLine = !String(it.text || '').includes('\n');
-    let charPositions = null;
-    if (isSingleLine && t.getNumberOfChars && t.getStartPositionOfChar && t.getEndPositionOfChar) {
-      try {
-        const N = t.getNumberOfChars();
-        if (N > 0) {
-          let startX = null;
-          try { startX = t.getStartPositionOfChar(0).x; } catch {}
-          const ends = [];
-          for (let i = 0; i < N; i++) {
-            let x = null;
-            try { x = t.getEndPositionOfChar(i).x; } catch {}
-            // Fall back: if this char failed, reuse the previous successful end (zero-width)
-            if (x == null) x = (ends.length ? ends[ends.length - 1] : startX);
-            ends.push(x);
-          }
-          if (startX == null && ends.length) startX = ends[0];
-          if (startX != null && ends.length) {
-            // Drop consecutive duplicates that didn't advance — they cause stalls
-            const cleaned = [];
-            ends.forEach(x => {
-              const last = cleaned.length ? cleaned[cleaned.length - 1] : startX;
-              if (Math.abs(x - last) > 0.1) cleaned.push(x);
-            });
-            if (cleaned.length) charPositions = { startX, ends: cleaned };
-          }
-        }
-      } catch {}
-    }
-
     drawHand.classList.add('visible');
     const start = performance.now();
     const dur = sc.duration * 1000;
-    const handY = bbox.y + bbox.height * 0.7;
-
-    if (charPositions) {
-      const { startX, ends } = charPositions;
-      const N = ends.length;
-      const goingLeft = ends[N - 1] < startX;
-      // Each char: 75% drawing + 25% pause → makes the per-character motion clearly visible
-      const DRAW_FRAC = 0.75;
-
-      function frame(now) {
-        if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
-        const t01 = Math.min(1, (now - start) / dur);
-        const charPos = t01 * N;
-        const fullIdx = Math.min(N - 1, Math.floor(charPos));
-        const localFrac = Math.min(1, charPos - fullIdx);
-        const drawProgress = Math.min(1, localFrac / DRAW_FRAC); // pauses at 1 during last 25%
-        const prevX = fullIdx === 0 ? startX : ends[fullIdx - 1];
-        const nextX = ends[fullIdx];
-        const edge = prevX + (nextX - prevX) * drawProgress;
-
-        if (goingLeft) {
-          rect.setAttribute('x', edge);
-          rect.setAttribute('width', Math.max(0, startX - edge));
-        } else {
-          rect.setAttribute('x', startX);
-          rect.setAttribute('width', Math.max(0, edge - startX));
-        }
-        positionHandAtSvgPoint(edge, handY);
-        if (t01 < 1) requestAnimationFrame(frame);
-        else resolve();
+    function frame(now) {
+      if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
+      const t01 = Math.min(1, (now - start) / dur);
+      const w = bbox.width * t01;
+      let handX, handY = bbox.y + bbox.height * 0.7;
+      if (it.isRTL) {
+        rect.setAttribute('x', bbox.x + bbox.width - w);
+        rect.setAttribute('width', w);
+        handX = bbox.x + bbox.width - w;
+      } else {
+        rect.setAttribute('width', w);
+        handX = bbox.x + w;
       }
-      requestAnimationFrame(frame);
-    } else {
-      // Fallback: bbox-wide single wipe
-      function frame(now) {
-        if (abort.stop) { drawHand.classList.remove('visible'); return resolve(); }
-        const t01 = Math.min(1, (now - start) / dur);
-        const w = bbox.width * t01;
-        let handX;
-        if (it.isRTL) {
-          rect.setAttribute('x', bbox.x + bbox.width - w);
-          rect.setAttribute('width', w);
-          handX = bbox.x + bbox.width - w;
-        } else {
-          rect.setAttribute('width', w);
-          handX = bbox.x + w;
-        }
-        positionHandAtSvgPoint(handX, handY);
-        if (t01 < 1) requestAnimationFrame(frame);
-        else resolve();
-      }
-      requestAnimationFrame(frame);
+      positionHandAtSvgPoint(handX, handY);
+      if (t01 < 1) requestAnimationFrame(frame);
+      else resolve();
     }
+    requestAnimationFrame(frame);
   });
 }
 
@@ -3523,6 +3371,7 @@ authForm.onsubmit = async (e) => {
 
 document.getElementById('btn-logout').onclick = () => {
   if (!confirm('تسجيل الخروج؟')) return;
+  localStorage.removeItem(LAST_PROJECT_KEY);
   WB_API.Auth.logout();
   location.reload();
 };
@@ -3547,6 +3396,19 @@ function initStudio() {
   if (pn && !pn.dataset.bound) {
     pn.dataset.bound = '1';
     pn.addEventListener('input', () => scheduleAutoSave());
+  }
+  // Auto-open: URL ?project=N takes priority, then last opened project from localStorage
+  const lastId = getProjectIdFromUrl() || parseInt(localStorage.getItem(LAST_PROJECT_KEY));
+  if (lastId && WB_API.Auth.isLoggedIn()) {
+    loadProject(lastId).catch(err => {
+      console.warn('Auto-open project failed:', err);
+      localStorage.removeItem(LAST_PROJECT_KEY);
+      // Clean a stale id from the URL too
+      const params = new URLSearchParams(location.search);
+      params.delete('project');
+      const qs = params.toString();
+      history.replaceState(null, '', location.pathname + (qs ? '?' + qs : ''));
+    });
   }
 }
 
